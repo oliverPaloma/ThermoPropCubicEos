@@ -2,7 +2,7 @@
 
 // Função para calcular a equação de estado com base na seleção do usuário
 
-auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints)->void{
+auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints, std::vector<double>z)->void{
         // Constantes para as equações de estado
  std::string filename = "Arquivos/pressao_T" + std::to_string(static_cast<int>(T)) + ".txt"; //std :: string EoSModel
     std::ofstream outfile(filename);
@@ -16,6 +16,8 @@ auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vect
   auto inc = (Vf - Vi) / ((double)npoints - 1.0);
   double P;
 
+  auto a_mistura=0., b_mistura=0.;
+
   for(auto i = 0; i < npoints; i++) 
   {
     calculatePressure(EoSModel,Tc,Pc,omega,T,V,P); 
@@ -28,33 +30,54 @@ auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vect
 
 // Função para calcular a equação de estado com base na seleção do usuário  Eq 3.42
 auto calculatePressure(CubicEOSModel EoSModel,std::vector<double> Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P)-> void { //, double &P
- 
-   
-    
-
-
-
-    
     
        auto sigma = computesigma(EoSModel); 
        auto epsilon = computeepsilon(EoSModel); 
        auto psi = computePsi(EoSModel); 
        auto OMEGA = computeOmega(EoSModel); 
+       //auto std::vector<double> a,b;
+        
+     for (int i = 0; i < Tc.size(); ++i) { 
+        
+       std::cout << "tc[" << i << "] = " << Tc[i] << std::endl;
+       
+       
+       }
 
-       auto Tr = T / Tc[0];
+
+/*
+
+for (int i = 0; i < Tc.size(); ++i) { ok
+  //      std::cout << "tc[" << i << "] = " << Tc[i] << std::endl;}
+
+b_mistura = 0.0;   
+for (int i = 0; i < N; ++i) {     //b_mistura usando regra de mistura linear
+    b_mistura += z[i] * b[i];
+}
+
+a_mistura = 0.0;
+for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < N; ++j) {     // Calcula a_mistura usando regra de mistura com k_ij = 0
+        a_mistura += z[i] * z[j] * sqrt(a[i] * a[j]);
+    }
+}
+*/
+
+       auto Tr = T / Tc[0]; //for 
        double alphaTr;
+
+
         switch (EoSModel) {
-            
             case CubicEOSModel::VanDerWaals: //van der waals vdW case C return 0.0;
                 alphaTr = 1.; 
                 break;
 
             case CubicEOSModel::SoaveRedlichKwong: //soave-redlich-kwong SRK    
-                alphaTr = pow(1. + (0.480 + 1.574 * omega[0]- 0.176 * omega[0] * omega[0]) * (1. - sqrt(Tr)), 2.);  
+                alphaTr = pow(1. + (0.480 + 1.574 * omega[0]- 0.176 * omega[0] * omega[0]) * (1. - sqrt(Tr)), 2.);   //for
                 break;
 
             case CubicEOSModel::PengRobinson: //peng-robinson PR  
-                alphaTr = pow(1. + (0.37464 + 1.54226 * omega[0] - 0.26992 * omega[0] * omega[0]) * (1. - sqrt(Tr)), 2.);  
+                alphaTr = pow(1. + (0.37464 + 1.54226 * omega[0] - 0.26992 * omega[0] * omega[0]) * (1. - sqrt(Tr)), 2.);   //for
                 break;
 
             default:
@@ -62,96 +85,11 @@ auto calculatePressure(CubicEOSModel EoSModel,std::vector<double> Tc,std::vector
                 return;
         }
         
-
-       auto b = OMEGA * (R * Tc[0]) / Pc[0]; 
-       auto alphaT = psi * (alphaTr * R * R * Tc[0] * Tc[0]) / Pc[0]; 
-        P = (R * T) / (V - b) - (alphaT / ((V + epsilon * b) * (V + sigma * b)));
-        
-        
-       
-    
-
-    
-    
+       auto b = OMEGA * (R * Tc[0]) / Pc[0];  //for
+       auto alphaT = psi * (alphaTr * R * R * Tc[0] * Tc[0]) / Pc[0]; //for a
+        P = (R * T) / (V - b) - (alphaT / ((V + epsilon * b) * (V + sigma * b))); //for
     }
 
-/*
-
-               P = (R * T) / (V - b) - (alphaT / ((V + epsilon * b) * (V + sigma * b)));
-                //const auto P = RT/(V - b) - a/((V + e*b)*(V + s*b));
-
-                std::cout << "Pressão ("<< toString(eosModel) <<"): " << P << " Pa" << std::endl;
-*/
-//van der waals vdW     
-//psi = 27.0 / 64.0  
-//sigma = 0;  
-//epsilon = 0;    
-//alphaTr = 1;  
-// b = (R * Tc) / (8 * Pc);   
-//alphaT = psi * (R * R * Tc * Tc) / Pc;  
-
-                
-//soave-redlich-kwong SRK
-//psi = 0.42748;
-//sigma = 1;
-//epsilon = 0;
-//Tr = T / Tc;
-//alphaTr = pow(1 + (0.480 + 1.574 * omega - 0.176 * omega * omega) * (1 - sqrt(Tr)), 2);  
-//b = 0.08664 * (R * Tc) / Pc;  
-//alphaT = psi * (alphaTr * R * R * Tc * Tc) / Pc; 
-
-               //double sigma = computesigma(eosModel); 
-               //double epsilon = computeepsilon(eosModel); 
-               //double psi = computePsi(eosModel); 
-
-                 //double omeg = computeOmega(eosModel); //usado para calcular Z
-               
-              
-
-    
-//peng-robinson PR
-//psi = 0.45724;
-//sigma = 1 + sqrt(2);
-//epsilon = 1 - sqrt(2);
-//Tr = T / Tc;
-//alphaTr = pow(1 + (0.37464 + 1.54226 * omega - 0.26992 * omega * omega) * (1 - sqrt(Tr)), 2);  
-//b = 0.07780 * (R * Tc) / Pc; 
-//alphaT = psi * (alphaTr * R * R * Tc * Tc) / Pc;  
-
-/*
-switch (EoSModel) {
-
-        case CubicEOSModel::VanDerWaals: return 0.0;
-        case CubicEOSModel::RedlichKwong: return 1.0;
-        case CubicEOSModel::SoaveRedlichKwong: return 1.0;
-        case CubicEOSModel::PengRobinson: return 1.0 + 1.4142135623730951;
-        default: return 1.0 + 1.4142135623730951;
-        case 0: // Van der Waals
-            beta = omega * (Pc / Tc); //pr=p/pc
-            q = (27.0 / 64.0) * (Tc / omega);
-            P = 1. + beta - q * beta;
-            std::cout << "Z (vdW): " << Z << std::endl;
-            break;
-
-        case 1: // Soave-Redlich-Kwong
-            beta = 0.08664 * (Pc / Tc);
-            q = 0.42748 * (Tc / omega);
-            P = 1. + beta - q * beta;
-            std::cout << "Z (SRK): " << Z << std::endl;
-            break;
-
-        case 2: // Peng-Robinson
-            beta = 0.07780 * (Pc / Tc);
-            q = 0.45724 * (Tc / omega);
-            P = 1. + beta - q * beta;
-            std::cout << "Z (PR): " << Z << std::endl;
-            break;
-
-        default:
-            std::cout << "Opção inválida." << std::endl;
-            break;
-    }
-*/
 
 
 //=================================================================================================
