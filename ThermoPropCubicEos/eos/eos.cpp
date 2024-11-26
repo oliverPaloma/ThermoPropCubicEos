@@ -1,6 +1,86 @@
 #include "eos.hpp"
 
-// Função para calcular a equação de estado com base na seleção do usuário
+auto calculateIsotermaComp(CubicEOSModel EoSModel,std::vector<double>Tc,std::vector<double>Pc, std::vector<double>omega,double T, std::vector<double>V, std::vector<double>z,int ncomp) -> void {
+
+std::string filename = "Arquivos/pressao_T" + std::to_string(static_cast<int>(T)) + ".txt";
+std::ofstream outfile(filename);if (!outfile.is_open()) {
+    std::cerr << "Erro ao abrir o arquivo!" << std::endl;
+    return;
+}
+
+outfile << "V(m³/mol)\tP(Pa)\n";
+
+double P;
+
+for (int i=0; i<V.size();i++) { 
+    calculatePressureComp(EoSModel, Tc, Pc, omega, T, V[i], P, z, ncomp);
+    outfile << V[i] << "\t" << P << "\n";
+}
+
+outfile.close();
+
+std::cout << "Dados armazenados no arquivo: " << filename << std::endl;
+
+}
+
+auto calculatePressureComp(CubicEOSModel EoSModel, std::vector<double>Tc, std::vector<double>Pc, 
+ std::vector<double>omega, double T, double V, double &P,  std::vector<double>z, int ncomp) -> void {
+
+auto sigma = computesigma(EoSModel);
+auto epsilon = computeepsilon(EoSModel);
+auto psi = computePsi(EoSModel);
+auto OMEGA = computeOmega(EoSModel);
+static std::vector<double> b, a, Tr, alphaTr;
+static int ncomp0;
+
+if (ncomp0 != ncomp) {
+    a.resize(ncomp);
+    b.resize(ncomp);
+    Tr.resize(ncomp);
+    alphaTr.resize(ncomp);
+    ncomp0 = ncomp;
+}
+
+for (int i = 0; i < ncomp; ++i) {
+    Tr[i] = T / Tc[i];
+    switch (EoSModel) {
+        case CubicEOSModel::VanDerWaals:
+            alphaTr[i] = 1.0;
+            break;
+        case CubicEOSModel::SoaveRedlichKwong:
+            alphaTr[i] = pow(1.0 + (0.480 + 1.574 * omega[i] - 0.176* omega[i] * omega[i]) * (1.0 - sqrt(Tr[i])), 2.0);
+            break;
+        case CubicEOSModel::PengRobinson:
+            alphaTr[i] = pow(1.0 + (0.37464 + 1.54226 * omega[i] - 0.26992 * omega[i] * omega[i]) * (1.0 - sqrt(Tr[i])), 2.0);
+            break;
+        default:
+            std::cout << "Opção inválida." << std::endl;
+            return;
+    }
+}
+
+for (int i = 0; i < ncomp; ++i) {
+    b[i] = OMEGA * (R * Tc[i]) / Pc[i];
+    a[i] = psi * (alphaTr[i] * R * R * Tc[i] * Tc[i]) / Pc[i];
+}
+
+static double a_mistura = 0.0, b_mistura = 0.0;
+
+for (int i = 0; i < ncomp; ++i) {
+    for (int j = 0; j < ncomp; ++j) {
+        a_mistura += z[i] * z[j] * sqrt(a[i] * a[j]);
+    }
+}
+
+for (int i = 0; i < ncomp; ++i) {
+    b_mistura += z[i] * b[i];
+}
+
+P = (R * T) / (V - b_mistura) - (a_mistura / ((V + epsilon * b_mistura) * (V + sigma * b_mistura)));
+
+}
+
+
 
 auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints, std::vector<double>z,int ncomp)->void{
         // Constantes para as equações de estado

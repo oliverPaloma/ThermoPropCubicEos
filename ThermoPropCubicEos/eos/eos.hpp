@@ -82,3 +82,8 @@ auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vect
                        double T, double Vi, double Vf, int npoints, std::vector<double>z, int ncomp)->void;
 
 auto calculatePressure(CubicEOSModel EoSModel,std::vector<double>Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P, std::vector<double>z,int ncomp)-> void; 
+
+auto calculateIsotermaComp(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double>Pc, std::vector<double> omega,double T, std::vector<double>V, std::vector<double>z,  int ncomp) -> void;
+
+auto calculatePressureComp(CubicEOSModel EoSModel, std::vector<double>Tc,std::vector<double>Pc, std::vector<double>omega, double T, double V, double &P,  std::vector<double>z, int ncomp) -> void;
+

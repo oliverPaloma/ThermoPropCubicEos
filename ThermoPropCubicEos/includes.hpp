@@ -12,8 +12,7 @@
 #include <functional>
 
 // The universal gas constant (in J/(mol*K))
-const auto R = 8.3144621;
-
+  const auto R = 8.31446261815;
 /// The value of NaN
 constexpr auto NaN = std::numeric_limits<double>::quiet_NaN();
 
@@ -26,7 +25,5 @@ using AlphaResult = std::tuple<double, double, double>;
 /// Convenient alias for `std::function<R(Args...)>`.
 template<typename F>
 using Fn = std::function<F>;
-
-
 
 #endif // INCLUDES_H_INCLUDED

@@ -1,19 +1,19 @@
   - Name: C1	
-      Tc(K): 150.0
-      Pc(Pa): 3.7e6
-      omega: 0.2
+      Tc(K): 190.555
+      Pc(Pa): 4598837.0
+      omega: 0.01131
   - Name: H2O	
-      Tc(K): 647.1
-      Pc(Pa): 2.2055e+07
-      omega: 0.345
+      Tc(K): 647.3
+      Pc(Pa): 22048300.0
+      omega: 0.344
   - Name: C3	
       Tc(K): 190.0
       Pc(Pa): 3.1e6
       omega: 0.1
   - Name: CO2	
       Tc(K): 304.2
-      Pc(Pa): 7.383e+06
-      omega: 0.224
+      Pc(Pa): 7376500.0
+      omega: 0.225
   - Name: NC6	
       Tc(K): 507.4
       Pc(Pa): 2968800.0
