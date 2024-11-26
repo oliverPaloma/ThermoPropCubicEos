@@ -2,25 +2,23 @@
 
 // Função para calcular a equação de estado com base na seleção do usuário
 
-auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints, std::vector<double>z)->void{
+auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints, std::vector<double>z,int ncomp)->void{
         // Constantes para as equações de estado
- std::string filename = "Arquivos/pressao_T" + std::to_string(static_cast<int>(T)) + ".txt"; //std :: string EoSModel
+    std::string filename = "Arquivos/pressao_T" + std::to_string(static_cast<int>(T)) + ".txt"; //std :: string EoSModel
     std::ofstream outfile(filename);
 
     if (!outfile.is_open()) {
         std::cerr << "Erro ao abrir o arquivo!" << std::endl;
         return;
     }
- outfile << "V(m³/mol)\tP(Pa)\n";  
+  outfile << "V(m³/mol)\tP(Pa)\n";  
   auto V = Vi;
   auto inc = (Vf - Vi) / ((double)npoints - 1.0);
   double P;
 
-  auto a_mistura=0., b_mistura=0.;
-
   for(auto i = 0; i < npoints; i++) 
   {
-    calculatePressure(EoSModel,Tc,Pc,omega,T,V,P); 
+    calculatePressure(EoSModel,Tc,Pc,omega,T,V,P,z,ncomp); 
     outfile << V << "\t" << P << "\n";
     V += inc;
   }
@@ -29,68 +27,62 @@ auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vect
 } 
 
 // Função para calcular a equação de estado com base na seleção do usuário  Eq 3.42
-auto calculatePressure(CubicEOSModel EoSModel,std::vector<double> Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P)-> void { //, double &P
+auto calculatePressure(CubicEOSModel EoSModel,std::vector<double> Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P, std::vector<double>z, int ncomp)-> void { //, double &P //
     
        auto sigma = computesigma(EoSModel); 
        auto epsilon = computeepsilon(EoSModel); 
        auto psi = computePsi(EoSModel); 
        auto OMEGA = computeOmega(EoSModel); 
-       //auto std::vector<double> a,b;
-        
-     for (int i = 0; i < Tc.size(); ++i) { 
-        
-       std::cout << "tc[" << i << "] = " << Tc[i] << std::endl;
+       static std::vector<double>b,a, Tr, alphaTr;
        
+       static int ncomp0;
        
+       if(ncomp0 != ncomp){
+        a.resize(ncomp);
+        b.resize(ncomp);
+        Tr.resize(ncomp);
+        alphaTr.resize(ncomp);
+        ncomp0=ncomp;
        }
+       
+     for (int i = 0; i < ncomp0; ++i) { 
 
-
-/*
-
-for (int i = 0; i < Tc.size(); ++i) { ok
-  //      std::cout << "tc[" << i << "] = " << Tc[i] << std::endl;}
-
-b_mistura = 0.0;   
-for (int i = 0; i < N; ++i) {     //b_mistura usando regra de mistura linear
-    b_mistura += z[i] * b[i];
-}
-
-a_mistura = 0.0;
-for (int i = 0; i < N; ++i) {
-    for (int j = 0; j < N; ++j) {     // Calcula a_mistura usando regra de mistura com k_ij = 0
-        a_mistura += z[i] * z[j] * sqrt(a[i] * a[j]);
-    }
-}
-*/
-
-       auto Tr = T / Tc[0]; //for 
-       double alphaTr;
-
-
-        switch (EoSModel) {
+       Tr[i] = T / Tc[i]; //for 
+            switch (EoSModel) {
             case CubicEOSModel::VanDerWaals: //van der waals vdW case C return 0.0;
-                alphaTr = 1.; 
+                alphaTr[i] = 1.; 
                 break;
-
             case CubicEOSModel::SoaveRedlichKwong: //soave-redlich-kwong SRK    
-                alphaTr = pow(1. + (0.480 + 1.574 * omega[0]- 0.176 * omega[0] * omega[0]) * (1. - sqrt(Tr)), 2.);   //for
+                alphaTr[i] = pow(1. + (0.480 + 1.574 * omega[i]- 0.176 * omega[i] * omega[i]) * (1. - sqrt(Tr[i])), 2.);   //for
                 break;
-
             case CubicEOSModel::PengRobinson: //peng-robinson PR  
-                alphaTr = pow(1. + (0.37464 + 1.54226 * omega[0] - 0.26992 * omega[0] * omega[0]) * (1. - sqrt(Tr)), 2.);   //for
+                alphaTr[i] = pow(1. + (0.37464 + 1.54226 * omega[i] - 0.26992 * omega[i] * omega[i]) * (1. - sqrt(Tr[i])), 2.);   //for
                 break;
-
             default:
                 std::cout << "Opção inválida." << std::endl;
                 return;
-        }
+            }
+     }
+
+
+       for (auto i = 0; i < ncomp; ++i) { //Tc.size()
+        b[i] = OMEGA * (R * Tc[i]) / Pc[i];  //for
+        a[i] = psi * (alphaTr[i] * R * R * Tc[i] * Tc[i]) / Pc[i]; //for a
+       }
         
-       auto b = OMEGA * (R * Tc[0]) / Pc[0];  //for
-       auto alphaT = psi * (alphaTr * R * R * Tc[0] * Tc[0]) / Pc[0]; //for a
-        P = (R * T) / (V - b) - (alphaT / ((V + epsilon * b) * (V + sigma * b))); //for
+        auto a_mistura=0., b_mistura=0.;
+
+       for (auto i = 0; i < ncomp; ++i) {
+             for (auto j = 0; j < ncomp; ++j) {     // Calcula a_mistura usando regra de mistura com k_ij = 0
+                 a_mistura += z[i] * z[j] * sqrt(a[i] * a[j]);
+             }
+         }
+
+       for (auto i = 0; i < ncomp; ++i) {     //b_mistura usando regra de mistura linear
+             b_mistura += z[i] * b[i];
     }
-
-
+        P = (R * T) / (V - b_mistura) - (a_mistura / ((V + epsilon * b_mistura) * (V + sigma * b_mistura))); //for
+    }
 
 //=================================================================================================
 // == REFERENCE ==

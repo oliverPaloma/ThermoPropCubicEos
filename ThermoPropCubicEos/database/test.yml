@@ -14,3 +14,11 @@
       Tc(K): 304.2
       Pc(Pa): 7.383e+06
       omega: 0.224
+  - Name: NC6	
+      Tc(K): 507.4
+      Pc(Pa): 2968800.0
+      omega: 0.296
+  - Name: NC10	
+      Tc(K): 617.60
+      Pc(Pa): 2107600.0
+      omega: 0.49
