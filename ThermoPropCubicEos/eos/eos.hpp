@@ -78,10 +78,12 @@ auto determinePhysicalStateThreedoubleRoots(double Zmin, double Zmax, double bet
 auto determinePhysicalStateOnedoubleRoot(double a, double b, double e, double s, 
   double T, double P) -> StateOfMatter;  
 
-auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, 
-                       double T, double Vi, double Vf, int npoints, std::vector<double>z, int ncomp)->void;
+auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints)->void;
+auto calculatePressure(CubicEOSModel EoSModel,std::vector<double>Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P)-> void; 
 
-auto calculatePressure(CubicEOSModel EoSModel,std::vector<double>Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P, std::vector<double>z,int ncomp)-> void; 
+auto calculateIsotermaMisture(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, 
+                       double T, double Vi, double Vf, int npoints, std::vector<double>z, int ncomp)->void;
+auto calculatePressureMisture(CubicEOSModel EoSModel,std::vector<double>Tc,std::vector<double>Pc,std::vector<double> omega,double T, double V, double &P, std::vector<double>z,int ncomp)-> void; 
 
 auto calculateIsotermaComp(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double>Pc, std::vector<double> omega,double T, std::vector<double>V, std::vector<double>z,  int ncomp) -> void;
 
