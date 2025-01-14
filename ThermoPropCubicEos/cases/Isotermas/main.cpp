@@ -4,7 +4,8 @@
 int main ()
 {
   auto T = 350.; 
-  auto databasePath = "/home/palomajo/Documentos/ThermoPropCubicEos/database/test.yml";  //auto databasePath = "/home/fellipe/Dropbox/Pessoais/Downloads/ThermoPropCubicEos/database/test.yml";
+  //auto databasePath = "/home/palomajo/Documentos/ThermoPropCubicEos/database/test.yml";  //auto databasePath = "/home/fellipe/Dropbox/Pessoais/Downloads/ThermoPropCubicEos/database/test.yml";
+  auto databasePath = "/home/paloma/Documentos/ThermoPropCubicEos/database/test.yml";
   auto components = "CO2"; //apenas um componete
   //auto components = "CO2 H2O"; //apenas um componete
   //testar com ('NC6,NC10') # Hexane/decane 

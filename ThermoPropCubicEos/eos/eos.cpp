@@ -20,7 +20,8 @@ double P;
 
 for (const auto& volume : V) { 
     calculatePressureComp(EoSModel, Tc, Pc, omega, T, volume , P, z, ncomp);
-    outfile << volume << "\t" << P << "\n";
+    //outfile << volume << "\t" << P << "\n";
+      outfile << std::fixed << std::setprecision(10) << volume << "\t" << P << "\n";
     }
 
 
@@ -197,6 +198,7 @@ auto calculateIsoterma(CubicEOSModel EoSModel, std::vector<double> Tc, std::vect
     {
     calculatePressure(EoSModel,Tc,Pc,omega,T,V,P); 
     outfile << V << "\t" << P << "\n";
+    //outfile << std::fixed << std::setprecision(10) << V << "\t" << P << "\n";
     V += inc;
     }
     outfile.close();
@@ -534,7 +536,15 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
     {
         for(auto j = 0; j < nspecies; ++j)
         {
-            const double r   = 1.0 - BIP[i][j];
+            //
+            if (i < BIP.size() && j < BIP[i].size()) {
+    const double r = 1.0 - BIP[i][j];
+} else {
+    std::cerr << "Índices fora dos limites: i = " << i << ", j = " << j << std::endl;
+}
+//
+           const double r   = 1.0 - BIP[i][j];
+            //const double r   = 0;
             const double rT  = 0.0;
             const double rTT = 0.0;
 
