@@ -1,5 +1,28 @@
 #include "eos.hpp"
 
+auto CalcularVolumeIdeal(CubicEOSModel EoSModel, std::vector<double>Tc, std::vector<double>Pc, std::vector<double>omega, std::vector<double>z,int ncomp, double &Vi, double &Vf)-> void{
+
+    auto OMEGA = computeOmega(EoSModel);
+    static std::vector<double> b;
+    static int ncomp0;        
+        if (ncomp0 != ncomp) {
+            b.resize(ncomp);
+            ncomp0 = ncomp;
+        }
+     
+     for (auto i = 0; i < ncomp; ++i) { 
+        b[i] = OMEGA * (R * Tc[i]) / Pc[i]; 
+       }
+     auto  b_mistura=0.;
+
+       for (auto i = 0; i < ncomp; ++i) {     //b_mistura usando regra de mistura linear
+             b_mistura += z[i] * b[i];
+    }
+
+    Vi = 10e-10/b_mistura; //Esse volume molar representa o sistema como um gás ideal
+    Vf = 0.74/b_mistura;
+}
+
 //colocar por ponteiro os vetores!!!!!! para ele nãp criar um vetor novo a cada vez que entra na função.
 
 auto calculateIsotermaComp(CubicEOSModel EoSModel, std::vector<double>Tc, std::vector<double>Pc, std::vector<double>omega , double T, std::vector<double>V, std::vector<double>z,int ncomp) -> void {
@@ -36,14 +59,12 @@ std::cout << "Dados armazenados no arquivo: " << filename << std::endl;
 
 auto calculatePressureComp(CubicEOSModel EoSModel, std::vector<double>Tc, std::vector<double>Pc, 
  std::vector<double>omega, double T, double V, double &P,  std::vector<double>z, int ncomp) -> void {
-
 auto sigma = computesigma(EoSModel);
 auto epsilon = computeepsilon(EoSModel);
 auto psi = computePsi(EoSModel);
 auto OMEGA = computeOmega(EoSModel);
 static std::vector<double> b, a, Tr, alphaTr;
 static int ncomp0;
-
 if (ncomp0 != ncomp) {
     a.resize(ncomp);
     b.resize(ncomp);
@@ -51,8 +72,6 @@ if (ncomp0 != ncomp) {
     alphaTr.resize(ncomp);
     ncomp0 = ncomp;
 }
-
-   
      for (int i = 0; i < ncomp0; ++i) { 
 
        Tr[i] = T / Tc[i]; //for 
@@ -71,14 +90,11 @@ if (ncomp0 != ncomp) {
                 return;
             }
      }
-
-
        for (auto i = 0; i < ncomp; ++i) { //Tc.size()
         b[i] = OMEGA * (R * Tc[i]) / Pc[i];  //for
         a[i] = psi * (alphaTr[i] * R * R * Tc[i] * Tc[i]) / Pc[i]; //for a
        }
-        
-        auto a_mistura=0., b_mistura=0.;
+    auto a_mistura=0., b_mistura=0.;
 
        for (auto i = 0; i < ncomp; ++i) {
              for (auto j = 0; j < ncomp; ++j) {     // Calcula a_mistura usando regra de mistura com k_ij = 0
@@ -90,17 +106,14 @@ if (ncomp0 != ncomp) {
              b_mistura += z[i] * b[i];
     }
 
-P = (R * T) / (V - b_mistura) - (a_mistura / ((V + epsilon * b_mistura) * (V + sigma * b_mistura))); //for
-
+        P = (R * T) / (V - b_mistura) - (a_mistura / ((V + epsilon * b_mistura) * (V + sigma * b_mistura))); 
 }
 
 
 
-auto calculateIsotermaMisture(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints, std::vector<double>z,int ncomp)->void{
- 
+auto calculateIsotermaMisture(CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double &Vi, double &Vf, int npoints, std::vector<double>z,int ncomp)->void{
     std::string filename = "Arquivos/pressao_T" + std::to_string(static_cast<int>(T)) + ".txt"; //std :: string EoSModel
     std::ofstream outfile(filename);
-
     if (!outfile.is_open()) {
         std::cerr << "Erro ao abrir o arquivo!" << std::endl;
         return;
@@ -110,12 +123,11 @@ auto calculateIsotermaMisture(CubicEOSModel EoSModel, std::vector<double> Tc, st
   auto inc = (Vf - Vi) / ((double)npoints - 1.0);
   double P;
 
-  for(auto i = 0; i < npoints; i++) 
-  {
+  for(auto i = 0; i < npoints; i++) {
     calculatePressureMisture(EoSModel,Tc,Pc,omega,T,V,P,z,ncomp); 
     outfile << V << "\t" << P << "\n";
     V += inc;
-  }
+    }
     outfile.close();
     std::cout << "Dados armazenados no arquivo: " << filename << std::endl; 
 } 

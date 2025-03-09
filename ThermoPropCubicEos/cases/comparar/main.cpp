@@ -3,12 +3,8 @@
 int main() {
 auto T = 350.; // Isoterma com temperatura constante
 
-//auto databasePath = "/home/paloma/Downloads/ThermoPropCubicEos-main/ThermoPropCubicEos/database/test.yml";
-//auto databasePath = "/home/paloma/Documentos/ThermoPropCubicEos/database/test.yml";
-
 auto databasePath = "/home/paloma/Documentos/ThermoPropCubicEos/database/test.yml";
 
-//"/home/palomajo/Documentos/ThermoPropCubicEos/database/test.yml"; 
 auto components = "CO2 C1"; // Componentes
 std::vector<double> Tc, Pc, omega;
 
