@@ -3,7 +3,19 @@
 
 int main ()
 {
-  auto T = 250.; 
+
+  //mistura 1
+  //auto T = 350.;
+  //auto T = 400.;
+  //auto T = 450.; 
+  
+  
+  //mistura 2
+  //auto T = 270.;
+  //auto T = 320.;
+  auto T = 380.; 
+
+
  
   auto databasePath = "/home/paloma/Documentos/ThermoPropCubicEos/database/test.yml"; //"/home/palomajo/Documentos/ThermoPropCubicEos/database/test.yml";"/home/fellipe/Dropbox/Pessoais/Downloads/ThermoPropCubicEos/database/test.yml";
   //auto components = "CO2 H2O"; //apenas um componete //testar com ('NC6,NC10') # Hexane/decane 
@@ -29,8 +41,8 @@ int main ()
   //auto components = "NC6 NC10";
   //std::vector<double> Tc,Pc,omega;
  
-  //auto EoSModel = CubicEOSModel::VanDerWaals; // vdW escolhido
-  auto EoSModel = CubicEOSModel::PengRobinson; //PR escolhido
+  auto EoSModel = CubicEOSModel::VanDerWaals; // vdW escolhido
+  //auto EoSModel = CubicEOSModel::PengRobinson; //PR escolhido
   //auto EoSModel = CubicEOSModel::SoaveRedlichKwong;  //srk escolhido
 
   //std::vector<double> z{1.}; //fração molar
@@ -39,9 +51,10 @@ int main ()
   
   auto ncomp=z.size();
 
-  auto Vi = 0.05/1000.; // m³/mol
-  auto Vf = 0.45/1000.;
+  auto Vi = 0.; // m³/mol
+ auto Vf = 0.;
   auto npoints = 100;
+
  
   //eu tinha rodado sem a regra de mistura, agr coloquei aqui e vou criar a função pra calcular o Vi e vf ideal.
   //calculateIsoterma(EoSModel,Tc,Pc,omega,T,Vi,Vf,npoints); //CubicEOSModel EoSModel, std::vector<double> Tc, std::vector<double> Pc, std::vector<double> omega, double T, double Vi, double Vf, int npoints)
