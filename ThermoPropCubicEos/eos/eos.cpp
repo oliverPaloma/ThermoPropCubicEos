@@ -1,7 +1,6 @@
 #include "eos.hpp"
 
 auto CalcularVolumeIdeal(CubicEOSModel EoSModel, std::vector<double>Tc, std::vector<double>Pc, std::vector<double>omega, std::vector<double>z,int ncomp, double &Vi, double &Vf)-> void{
-
     auto OMEGA = computeOmega(EoSModel);
     static std::vector<double> b;
     static int ncomp0;        
@@ -266,12 +265,12 @@ auto calculatePressure(CubicEOSModel EoSModel,std::vector<double> Tc,std::vector
 //=================================================================================================
 
 /// A high-order function that return an `alpha` function that calculates alpha, alphaT and alphaTT for a given EOS.
+
 auto alpha(CubicEOSModel type) -> Fn<AlphaResult(double, double, double)>
-{
+{   ///Especificação dos Parâmetros das Equações de Estado pg 72
     // The alpha function for van der Waals EOS (see Table 3.1 of Smith et al. 2017)
     auto alphaVDW = [](double Tr, double TrT, double omega) -> AlphaResult
-    {
-        const double alpha = 1.0;
+    {   const double alpha = 1.0;
         const double alphaT = 0.0;
         const double alphaTT = 0.0;
         return { alpha, alphaT, alphaTT };
