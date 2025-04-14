@@ -8,16 +8,13 @@ auto CalcularVolumeIdeal(CubicEOSModel EoSModel, std::vector<double>Tc, std::vec
             b.resize(ncomp);
             ncomp0 = ncomp;
         }
-     
      for (auto i = 0; i < ncomp; ++i) { 
         b[i] = OMEGA * (R * Tc[i]) / Pc[i]; 
        }
      auto  b_mistura=0.;
-
        for (auto i = 0; i < ncomp; ++i) {     //b_mistura usando regra de mistura linear
              b_mistura += z[i] * b[i];
     }
-
     Vi = 10e-10/b_mistura; //Esse volume molar representa o sistema como um gás ideal
     Vf = 0.74/b_mistura;
 }
@@ -596,17 +593,27 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
     // Calculate the temperature and pressure derivatives of bmix
     const auto bmixT = 0.0; // no temperature dependence!
     const auto bmixP = 0.0; // no pressure dependence!
+    const auto bmixV = 0.0; // add 14/05/25
+
+
+
+
 
     // Calculate the auxiliary parameter beta and its partial derivatives betaT (at const P) and betaP (at const T)
     const double beta = P*bmix/(R*T); // Eq. (3.46)
-    const double betaT = -beta/T; // note bmixT = 0
-    const double betaP =  beta/P; // note bmixP = 0
+    const double betaT = -beta/T; 
+
+    const double bmixT = 0 // derivações.........
+
+    const double betaP =  beta/P; 
+    const double bmixP = 0
 
     // Compute the auxiliary variable q and its partial derivatives qT, qTT (at const P) and qP (at const T)
     const double q = amix/(bmix*R*T); // Eq. (3.47)
     const double qT = q*(amixT/amix - 1.0/T); // === amixT/(bmix*R*T) - amix/(bmix*R*T*T)
     const double qTT = qT*qT/q + q*(amixTT/amix - amixT*amixT/(amix*amix) + 1.0/(T*T)); // === qT*(amixT/amix - 1.0/T) + q*(amixTT/amix - amixT*amixT/amix/amix + 1.0/T/T)
     const double qP = 0.0; // from Eq. (3.47), (dq/dP)_T := 0
+    const double qV = 0.0; 
 
     // Convert Eq. (3.48) into a cubic polynomial Z^3 + AZ^2 + BZ + C = 0, and compute the coefficients A, B, C of the cubic equation of state
     const double A = (epsilon + sigma - 1)*beta - 1;
@@ -697,7 +704,20 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
     for(auto k = 0; k < nspecies; ++k)
     {
         const double betak = P*bbar[k]/(R*T);
+
+        //==============Derivações============
+        const double betakT = -P * bbar[k]/(R*T*T) ;
+        const double betakP = bbar[k]/(R*T);
+        const double betakV = 0 ;
+
+
         const double qk    = (1 + abar[k]/amix - bbar[k]/bmix)*q;
+        //==============Derivações============
+        const double qkT    = ((-abar[k] / (amix * amix)) * amixT + (bbar[k] / (bmix * bmix)) * bmixT) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qT;
+        const double qkP    = ((-abar[k] / (amix * amix)) * amixP + (bbar[k] / (bmix * bmix)) * bmixP) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qP;
+        const double qkV    = ((-abar[k] / (amix * amix)) * amixV + (bbar[k] / (bmix * bmix)) * bmixV) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qV ;
+
+
         const double Ak    = (epsilon + sigma - 1.0)*betak - 1.0;
         const double Bk    = ((epsilon*sigma - epsilon - sigma)*(2*betak - beta) + qk - q)*beta - (epsilon + sigma - q)*betak;
         const double Ck    = (epsilon*sigma*(2*beta + 1) + 2*q - qk)*beta*beta - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*beta*betak;
@@ -706,8 +726,15 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
         const double Ik = (epsilon != sigma) ?
             I + ((Zk + sigma*betak)/(Z + sigma*beta) - (Zk + epsilon*betak)/(Z + epsilon*beta))/(sigma - epsilon) :
             I * (1 + betak/beta - (Zk + epsilon*betak)/(Z + epsilon*beta));
+        //==============Derivações============
+
 
         props.ln_phi[k] = Zk - (Zk - betak)/(Z - beta) - log(Z - beta) + q*I - qk*I - q*Ik;
+
+       props.ln_phiT[k] = ZkT - ((Z - beta)(ZkT - betakT) - (Zk - betak)(ZT - betaT)) / pow(Z - beta, 2) - (ZT - betaT) / (Z - beta) + qT * I + q * IT - qkT * I - qk * IT - qT * Ik - q * IkT; 
+       props.ln_phiV[k] = ZkV - ((Z - beta)(ZkV - betakV) - (Zk - betak)(ZV - betaV)) / pow(Z - beta, 2) - (ZV - betaV) / (Z - beta) + qV * I + q * IV - qkV * I - qk * IV - qV * Ik - q * IkV; 
+       props.ln_phiP[k] = ZkP - ((Z - beta)(ZkP - betakP) - (Zk - betak)(ZP - betaP)) / pow(Z - beta, 2) - (ZP - betaP) / (Z - beta) + qP * I + q * IP - qkP * I - qk * IP - qP * Ik - q * IkP;
+
     }
 }
 
