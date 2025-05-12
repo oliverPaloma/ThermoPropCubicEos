@@ -4,8 +4,12 @@
 int main ()
 {
    auto T = 350.; //isoterma temperatura constante 
-   auto databasePath = "/home/palomajo/Documentos/ThermoPropCubicEos/database/test.yml";  //auto databasePath = "/home/fellipe/Dropbox/Pessoais/Downloads/ThermoPropCubicEos/database/test.yml";
+   //auto databasePath = "/home/palomajo/Documentos/ThermoPropCubicEos/database/test.yml";  //auto databasePath = "/home/fellipe/Dropbox/Pessoais/Downloads/ThermoPropCubicEos/database/test.yml";
    //comentado para testar um componente apenas: 
+
+auto databasePath = "/home/palomajo/Downloads/ThermoPropCubicEos-main/ThermoPropCubicEos-main/ThermoPropCubicEos/database/test.yml";
+
+   
    //auto components = "CO2 C1";  //depois testar: //auto components = "NC6 NC10";  //auto components = "CO2 H2O"; 
 
 //testar apenas um componente pra ver se bate com a isotermas

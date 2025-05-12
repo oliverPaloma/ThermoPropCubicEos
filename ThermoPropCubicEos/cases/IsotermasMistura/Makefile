@@ -5,7 +5,8 @@ FC	= gfortran
 #FCOPT	= -O2
 FCOPT = -g -O0 
 CCOPT	= -std=c++2a $(FCOPT)
-ThermoProjPath	= /home/paloma/Área\ de\ trabalho/ThermoPropCubicEos-main/ThermoPropCubicEos
+
+ThermoProjPath = /home/palomajo/Downloads/ThermoPropCubicEos-main/ThermoPropCubicEos-main/ThermoPropCubicEos
 ExecName = main
 CPPFILES	= $(ExecName).cpp $(ThermoProjPath)/eos/eos.cpp \
 			$(ThermoProjPath)/database/reading.cpp
