@@ -1,7 +1,7 @@
 from thermopack.cubic import cubic
 #eos = pcsaft('NC6,NC12') 
 #eos = cubic('CO2,C1', 'pr')
-eos = cubic('C1,C2,C3,C4,NC4,IC5,NC5,NC6,NC7,NC8,NC9,NC10,NC11,NC12,NC13,NC14,NC15,NC16', 'pr')
+eos = cubic('C1,C2,C3,IC4,NC4,IC5,NC5,NC6,NC7,NC8,NC9,NC10,NC11,NC12,NC13,NC14,NC15,NC16', 'pr')
 #eos = cubic('CO2,C1', 'pr')
 #eos = cubic('CO2,C1', 'pr')
 #x = [0.5, 0.5]
