@@ -19,9 +19,9 @@ struct CubicEOSProps{
     double Cvres = {};  // The residual molar heat capacity at constant volume of the phase (in J/(mol*K)).
 
     std::vector<double> ln_phi;   // The ln fugacity coefficients of the species in the phase.
-    std::vector<double> ln_phiT;  // Derivações em 05/05/25
-    std::vector<double> ln_phiV;
-    std::vector<double> ln_phiP;
+
+    std::vector<double> dA_ln_phi_T;  // Derivações em 05/05/25 //std::vector<double> ln_phiV;
+    std::vector<double> dA_ln_phi_P;
     
     StateOfMatter som; // The state of matter of the fluid phase
 };

@@ -158,7 +158,7 @@ auto calculatePressureMisture(CubicEOSModel EoSModel,std::vector<double> Tc,std:
         b_mistura += z[i] * b[i];}
         
     P = (R * T) / (V - b_mistura) - (a_mistura / ((V + epsilon * b_mistura) * (V + sigma * b_mistura))); //for
-
+    P= P* 9.86923e-6; //conversão de Pa para atm
 }
 
 
@@ -212,8 +212,7 @@ auto calculatePressure(CubicEOSModel EoSModel,std::vector<double> Tc,std::vector
         auto b = OMEGA * (R * Tc[0]) / Pc[0]; 
         auto a = psi * (alphaTr * R * R * Tc[0] * Tc[0]) / Pc[0]; 
         
-        P = (R * T) / (V - b) - (a / ((V + epsilon * b) * (V + sigma * b)));
-}
+        P = (R * T) / (V - b) - (a / ((V + epsilon * b) * (V + sigma * b)));}
 
 
 //===========================================REFERENCE============================================
@@ -422,17 +421,10 @@ auto determinePhysicalStateOnedoubleRoot(double a, double b, double e, double s,
     return (Pmin != Pmin) ? StateOfMatter::superCritical : (P < Pmin) ? StateOfMatter::gas : StateOfMatter::liquid;
 }
 
-
-auto compute(CubicEOSProps& props, std::vector<double> &Tcr, 
-  std::vector<double> &Pcr, std::vector<double> &omega, double T, double P, 
-  std::vector<double> &x, CubicEOSModel &model, 
-  std::vector<std::vector<double>> &BIP) -> void
-{
-    /// The number of species in the phase.
-    auto nspecies = x.size();
-
+auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double> &Pcr, std::vector<double> &omega, double T, double P, std::vector<double> &x, CubicEOSModel &model, std::vector<std::vector<double>> &BIP) -> void {
+    
+    auto nspecies = x.size();// The number of species in the phase.
     /// The function that calculates the interaction parameters kij and its temperature derivatives.
-
     static std::vector<double> a(nspecies);     ///< Auxiliary array
     static std::vector<double> aT(nspecies);    ///< Auxiliary array
     static std::vector<double> aTT(nspecies);   ///< Auxiliary array
@@ -453,8 +445,7 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
     const auto alphafn = alpha(model);
 
     // Calculate the parameters `a` and `b` of the cubic equation of state for each species
-    for(auto k = 0; k < nspecies; ++k)
-    {
+    for(auto k = 0; k < nspecies; ++k){
         const double factor = Psi*R*R*(Tcr[k]*Tcr[k])/Pcr[k]; // factor in Eq. (3.45) multiplying alpha
         const auto TrT = 1.0/Tcr[k];
         const auto Tr = T * TrT;
@@ -464,6 +455,16 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
         aTT[k] = factor*alphaTT;
         b[k]   = Omega*R*Tcr[k]/Pcr[k]; // Eq. (3.44)
     }
+
+    //teste das derivações a, aT, aTT (ok)
+        //props.ln_phi = a;
+        //props.dA_ln_phi_T = aT;
+        //return;
+
+        //props.ln_phi = aT;
+        //props.dA_ln_phi_T = aTT;
+        //return;
+
 
     // Calculate the parameter `amix` of the phase and the partial molar parameters `abar` of each species
     double amix = {};
@@ -484,28 +485,38 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
             const double r   = 1.0 - BIP[i][j];//const double r   = 0;
             const double rT  = 0.0;
             const double rTT = 0.0;
-            const double rP  = 0.0;//add 12/05/25
+            //const double rP  = 0.0;//add 12/05/25
 
             const double s   = sqrt(a[i]*a[j]); // Eq. (13.93)
             const double sT  = 0.5*s/(a[i]*a[j]) * (aT[i]*a[j] + a[i]*aT[j]);
             const double sTT = 0.5*s/(a[i]*a[j]) * (aTT[i]*a[j] + 2*aT[i]*aT[j] + a[i]*aTT[j]) - sT*sT/s;
-            const double sP  = 0.5*s/(a[i]*a[j]) * (aT[i]*a[j] + a[i]*aT[j]);//add 12/05/25
+            //const double sP  = 0.5*s/(a[i]*a[j]) * (aT[i]*a[j] + a[i]*aP[j]);//add 12/05/25
 
             const double aij   = r*s;
             const double aijT  = rT*s + r*sT;
             const double aijTT = rTT*s + 2.0*rT*sT + r*sTT;
-            const double aijP  = rP*s + r*sP;//add 12/05/25
+            //const double aijP  = rP*s + r*sP;//add 12/05/25 não existe 
 
             amix   += x[i] * x[j] * aij; // Eq. (13.92) of Smith et al. (2017)
             amixT  += x[i] * x[j] * aijT;
             amixTT += x[i] * x[j] * aijTT;
-            amixP  += x[i] * x[j] * aijP;  //add 12/05/25
+            //amixP  += x[i] * x[j] * aijP;  //add 12/05/25 não existe 
 
             abar[i]  += 2 * x[j] * aij;  // see Eq. (13.94)
             abarT[i] += 2 * x[j] * aijT;
         }
     }
-
+    
+    //teste das derivações
+        //props.ln_phi.resize(1);
+        //props.dA_ln_phi_P.resize(1);
+        //props.ln_phi[0] = abar[0]; //amix com amixT, amixT com amixTT, amix com amixP
+        //props.dA_ln_phi_T[0] = abarT[0];
+        //props.dA_ln_phi_P[0] = amixP;
+        //abar com abarT (ok)
+        //props.ln_phi = abar;
+        //props.dA_ln_phi_T = abarT;
+        //return;
     
     for(auto i = 0; i < nspecies; ++i){ // Finalize the calculation of `abar` and `abarT`
         abar[i] -= amix;
@@ -516,22 +527,40 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
     //     bmix = sum(x[i] * bbar[i])
 
     double bmix = {};
-    for(auto i = 0; i < nspecies; ++i)
-    {
+
+    for(auto i = 0; i < nspecies; ++i){
         bbar[i] = Omega*R*Tcr[i]/Pcr[i]; // see Eq. (13.95) and unnumbered equation before Eq. (13.99)
-        bmix += x[i] * bbar[i];  // Eq. (13.91) of Smith et al. (2017)
-    }
+        bmix += x[i] * bbar[i];}  // Eq. (13.91) of Smith et al. (2017)
+    
+    //teste das derivações bbar com bmix (erro)
+        //props.ln_phi.resize(1);
+        //props.dA_ln_phi_T.resize(1);
+        //props.ln_phi = bbar; 
+        //props.dA_ln_phi_T.resize(1);
+        //props.dA_ln_phi_T[0] = bmix;
+        //return;
 
     const auto bmixT = 0.0; // no temperature dependence! // Calculate the temperature and pressure derivatives of bmix
     const auto bmixP = 0.0; // no pressure dependence!
-    const auto bmixV = 0.0; // add 14/05/25
+    //const auto bmixV = 0.0; // add 14/05/25
     
     const double beta = P*bmix/(R*T); // Eq. (3.46) // Calculate the auxiliary parameter beta and its partial derivatives betaT (at const P) and betaP (at const T)
     const double betaT = -beta/T; 
-
-    const double bmixT = 0; // derivações.........
     const double betaP =  beta/P; 
-    const double bmixP = 0;
+
+    //teste das derivações beta com betaT       
+        //props.ln_phi.resize(1);
+        //props.ln_phi[0] = beta; 
+        //props.dA_ln_phi_T.resize(1);
+        //props.dA_ln_phi_T[0] = betaT;
+        //return;
+
+    //teste das derivações beta com betaP       
+        //props.ln_phi.resize(1);
+        //props.ln_phi[0] = beta; 
+        //props.dA_ln_phi_P.resize(1);
+        //props.dA_ln_phi_P[0] = betaP;
+        //return;
 
     // Compute the auxiliary variable q and its partial derivatives qT, qTT (at const P) and qP (at const T)
     const double q = amix/(bmix*R*T); // Eq. (3.47)
@@ -588,39 +617,41 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
         IP = I*(betaP/beta - (ZP + epsilon*betaP)/(Z + epsilon*beta)); // @eq{ I_{P}\equiv\left(\frac{\partial I}{\partial P}\right)_{T}=I\left(\frac{\beta_{P}}{\beta}-\frac{Z_{P}+\epsilon\beta_{P}}{Z+\epsilon\beta}\right) }
         }
 
-    const double V0  =  R*T/P;   //===============================================================
-    const double V0T =  V0/T;    // Calculate the ideal volume properties of the phase
-    const double V0P = -V0/P;    //===============================================================
+    const double V0  =  R*T/P; //===================================================//
+    const double V0T =  V0/T;  // Calculate the ideal volume properties of the phase//
+    const double V0P = -V0/P;  //===================================================//
 
-    const auto& V  = props.V  = Z*V0;               //===========================================================
-    const auto& VT = props.VT = ZT*V0 + Z*V0T;      // Calculate the corrected volumetric properties of the phase
-    const auto& VP = props.VP = ZP*V0 + Z*V0P;      //===========================================================
+    const auto& V  = props.V  = Z*V0;          //===========================================================//
+    const auto& VT = props.VT = ZT*V0 + Z*V0T; // Calculate the corrected volumetric properties of the phase//
+    const auto& VP = props.VP = ZP*V0 + Z*V0P; //===========================================================//
 
-    //=========================================================================================
-    // Calculate the residual properties of the phase
-    //=========================================================================================
+    //===============================================//
+    // Calculate the residual properties of the phase//
+    //===============================================//
     const auto& Gres  = props.Gres  = R*T*(Z - 1 - log(Z - beta) - q*I); // from Eq. (13.74) of Smith et al. (2017)
     const auto& Hres  = props.Hres  = R*T*(Z - 1 + T*qT*I); // equation after Eq. (13.74), but using T*qT instead of Tr*qTr, which is equivalent
     const auto& Cpres = props.Cpres = Hres/T + R*T*(ZT + qT*I + T*qTT*I + T*qT*IT); // from Eq. (2.19), Cp(res) := (dH(res)/dT)P === R*(Z - 1 + T*qT*I) + R*T*(ZT + qT*I + T*qTT*I + T*qT*IT) = H_res/T + R*T*(ZT + qT*I + T*qTT*I + T*qT*IT)
 
-    //=========================================================================================
-    // Calculate the fugacity coefficients for each species
-    //=========================================================================================
+    //=====================================================//
+    // Calculate the fugacity coefficients for each species//
+    //=====================================================//
     props.ln_phi.resize(nspecies);
-
+    props.dA_ln_phi_T.resize(nspecies);
+    props.dA_ln_phi_P.resize(nspecies);
+   
     for(auto k = 0; k < nspecies; ++k){
         const double betak = P*bbar[k]/(R*T);
-
         const double betakT = -P * bbar[k]/(R*T*T) ; //==============Derivações============
         const double betakP = bbar[k]/(R*T);
         const double betakV = 0 ;
 
         const double qk    = (1 + abar[k]/amix - bbar[k]/bmix)*q;
         const double qkT    = ((-abar[k] / (amix * amix)) * amixT + (bbar[k] / (bmix * bmix)) * bmixT) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qT; //==============Derivações============
-        const double qkP    = ((-abar[k] / (amix * amix)) * amixP + (bbar[k] / (bmix * bmix)) * bmixP) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qP; //==============Derivações============
-      //const double qkV    = ((-abar[k] / (amix * amix)) * amixV + (bbar[k] / (bmix * bmix)) * bmixV) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qV ;
+        //erro amixP no lugar de 0. tinha amixP
+        const double qkP    = ((-abar[k] / (amix * amix)) * 0. + (bbar[k] / (bmix * bmix)) * bmixP) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qP; //==============Derivações============
+        //const double qkV    = ((-abar[k] / (amix * amix)) * amixV + (bbar[k] / (bmix * bmix)) * bmixV) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qV ;
 
-        const double Ak    = (epsilon + sigma - 1.0)*betak - 1.0;
+        const double Ak  = (epsilon + sigma - 1.0)*betak - 1.0;
         const double AkT = (epsilon + sigma - 1.0) * betakT; //add 12/05/25
         const double AkP = (epsilon + sigma - 1.0) * betakP; //add 12/05/25
 
@@ -646,12 +677,19 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr,
 
         props.ln_phi[k] = Zk - (Zk - betak)/(Z - beta) - log(Z - beta) + q*I - qk*I - q*Ik;
 
+        //props.ln_phi_T_perturbada[k] = (T + dx);
+        //props.ln_phi_P_perturbada[k] = (P + dx);
 
-       props.ln_phiT[k] = ZkT - ((Z - beta)(ZkT - betakT) - (Zk - betak)(ZT - betaT)) / pow(Z - beta, 2) - (ZT - betaT) / (Z - beta) + qT * I + q * IT - qkT * I - qk * IT - qT * Ik - q * IkT; 
-       props.ln_phiP[k] = ZkP - ((Z - beta)(ZkP - betakP) - (Zk - betak)(ZP - betaP)) / pow(Z - beta, 2) - (ZP - betaP) / (Z - beta) + qP * I + q * IP - qkP * I - qk * IP - qP * Ik - q * IkP;
+        props.dA_ln_phi_T[k] = ZkT - ((Z - beta)*(ZkT - betakT) - (Zk - betak)*(ZT - betaT)) / pow(Z - beta, 2) - (ZT - betaT) / (Z - beta) + qT * I + q * IT - qkT * I - qk * IT - qT * Ik - q * IkT;   // Derivações em 05/05/25 //std::vector<double> ln_phiV;// Derivações em 05/05/25 //std::vector<double> ln_phiV;
+        props.dA_ln_phi_P[k] = ZkP - ((Z - beta)*(ZkP - betakP) - (Zk - betak)*(ZP - betaP)) / pow(Z - beta, 2) - (ZP - betaP) / (Z - beta) + qP * I + q * IP - qkP * I - qk * IP - qP * Ik - q * IkP;
 
-       //props.ln_phiV[k] = ZkV - ((Z - beta)(ZkV - betakV) - (Zk - betak)(ZV - betaV)) / pow(Z - beta, 2) - (ZV - betaV) / (Z - beta) + qV * I + q * IV - qkV * I - qk * IV - qV * Ik - q * IkV; 
+        //props.dN_ln_phi_T[k] = (props.ln_phi_T_perturbada[k] - props.ln_phi[k]) / dx;
+        //props.dN_ln_phi_P[k] = (props.ln_phi_P_perturbada[k] - props.ln_phi[k]) / dx;
 
-       //add derivada de amix---------------------------
+        //std::cout << std::fixed << std::setprecision(15);
+        //std::cout << "Erro derivadaT: " << abs (props.dN_ln_phi_T[k]/props.dA_ln_phi_T[k] - 1) << "\n" << std::endl;
+        //std::cout << "Erro derivadaP: " << abs (props.dN_ln_phi_P[k]/props.dA_ln_phi_P[k] - 1) << "\n" << std::endl;
+        //props.ln_phiV[k] = ZkV - ((Z - beta)(ZkV - betakV) - (Zk - betak)(ZV - betaV)) / pow(Z - beta, 2) - (ZV - betaV) / (Z - beta) + qV * I + q * IV - qkV * I - qk * IV - qV * Ik - q * IkV; 
     }
 }
+

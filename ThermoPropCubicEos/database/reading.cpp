@@ -36,7 +36,7 @@ auto get_param(std::ifstream &file) -> double
   return std::stod(parameters[1]);
 }
 
-auto read_database(std::vector<double> &Tc, std::vector<double> &Pc, 
+auto read_database(std::vector<double> &Tcr, std::vector<double> &Pcr, 
   std::vector<double> &omega, std::string databasePath, std::string components) -> void
 {
   // Tc, Pc, and omega
@@ -46,7 +46,7 @@ auto read_database(std::vector<double> &Tc, std::vector<double> &Pc,
   auto species = split_string(components);
   auto ncomp = species.size();  
 
-  Tc.resize(ncomp); Pc.resize(ncomp); omega.resize(ncomp); 
+  Tcr.resize(ncomp); Pcr.resize(ncomp); omega.resize(ncomp); 
   
   std::ifstream input_file (databasePath);
   if (!input_file.is_open()) 
@@ -68,8 +68,8 @@ auto read_database(std::vector<double> &Tc, std::vector<double> &Pc,
     {
       if (!SpeciesName.compare(species[j]))
       { 
-        Tc[j] = get_param(input_file); 
-        Pc[j] = get_param(input_file);
+        Tcr[j] = get_param(input_file); 
+        Pcr[j] = get_param(input_file);
         omega[j] = get_param(input_file);
         i++; 
         test = true;
@@ -85,7 +85,7 @@ auto read_database(std::vector<double> &Tc, std::vector<double> &Pc,
   // Testing if all input species are present in the database
   for (auto j = 0; j < ncomp; j++) 
   {
-    if (Tc[j] == 0. || Pc[j] == 0. ||omega[j] == 0.)
+    if (Tcr[j] == 0. || Pcr[j] == 0. ||omega[j] == 0.)
       std::cout << "\nSpecies index " << j << " is not present in the database" << std::endl;
   }
 }
