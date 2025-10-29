@@ -447,33 +447,40 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
     // Calculate the parameters `a` and `b` of the cubic equation of state for each species
     for(auto k = 0; k < nspecies; ++k){
         const double factor = Psi*R*R*(Tcr[k]*Tcr[k])/Pcr[k]; // factor in Eq. (3.45) multiplying alpha
-        const auto TrT = 1.0/Tcr[k];
-        const auto Tr = T * TrT;
-        const auto [alpha, alphaT, alphaTT] = alphafn(Tr, TrT, omega[k]);
+        const auto TrT = 1.0/Tcr[k];  //(ok)
+        const auto Tr = T * TrT;//(ok)
+
+        const auto [alpha, alphaT, alphaTT] = alphafn(Tr, TrT, omega[k]); //tava rodando com omega troquei pra Omega para testar.... com omega o vetor ficou com T E P.
         a[k]   = factor*alpha; // see Eq. (3.45)
         aT[k]  = factor*alphaT;
         aTT[k] = factor*alphaTT;
-        b[k]   = Omega*R*Tcr[k]/Pcr[k]; // Eq. (3.44)
+        b[k]   = Omega*R*Tcr[k]/Pcr[k]; // Eq. (3.44) //Tem que existir bT e bTT?
     }
 
-    //teste das derivações a, aT, aTT (ok)
+    //teste das derivações a, aT, aTT (ok) 
         //props.ln_phi = a;
         //props.dA_ln_phi_T = aT;
-        //return;
+        //return; 
+        //(resultado: 2.57e-8 , 3.05e-8  , 1.81e-8)
 
-        //props.ln_phi = aT;
+        //props.ln_phi = aT; //(ok)
         //props.dA_ln_phi_T = aTT;
         //return;
-
-
+        //(resultado: 1.31e-8 , 9.43e-9  , 2.95e-8)
     // Calculate the parameter `amix` of the phase and the partial molar parameters `abar` of each species
+
     double amix = {};
     double amixT = {};
     double amixTT = {};
     double amixP = {};
 
-    std::fill(abar.begin(), abar.end(), 0.0);
-    std::fill(abarT.begin(), abarT.end(), 0.0);
+    std::fill(abar.begin(), abar.end(), 0.0); //define todos os elementos de abar como 0.0. Desde o inicio até o fim.
+    std::fill(abarT.begin(), abarT.end(), 0.0); //define todos os elementos de abarT como 0.0. Desde o inicio até o fim.
+
+    //teste das derivações aij com aijT (erro)
+                //props.ln_phi.resize(nspecies*nspecies);
+                //props.dA_ln_phi_T.resize(nspecies*nspecies);
+
 
     for(auto i = 0; i < nspecies; ++i){
         for(auto j = 0; j < nspecies; ++j){
@@ -495,67 +502,80 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
             const double aij   = r*s;
             const double aijT  = rT*s + r*sT;
             const double aijTT = rTT*s + 2.0*rT*sT + r*sTT;
-            //const double aijP  = rP*s + r*sP;//add 12/05/25 não existe 
-
+           
             amix   += x[i] * x[j] * aij; // Eq. (13.92) of Smith et al. (2017)
             amixT  += x[i] * x[j] * aijT;
             amixTT += x[i] * x[j] * aijTT;
-            //amixP  += x[i] * x[j] * aijP;  //add 12/05/25 não existe 
-
+            
             abar[i]  += 2 * x[j] * aij;  // see Eq. (13.94)
             abarT[i] += 2 * x[j] * aijT;
+
+        //teste das derivações aij com aijT (ok) a, aT, aTT
+                //props.ln_phi[j + nspecies*i] = aijT;
+                //props.dA_ln_phi_T[j + nspecies*i] = aijTT;
+                
+                //(resultado: 2.57e-8 , 1  , nan) para epsilon e-3 resultado: nan , 1  , nan.
         }
     }
-    
-    //teste das derivações
+ //return; //teste das derivações aij com aijT (ok)
+    //teste das derivações //amix com amixT, amixT com amixTT, amix com amixP
         //props.ln_phi.resize(1);
         //props.dA_ln_phi_P.resize(1);
-        //props.ln_phi[0] = abar[0]; //amix com amixT, amixT com amixTT, amix com amixP
-        //props.dA_ln_phi_T[0] = abarT[0];
-        //props.dA_ln_phi_P[0] = amixP;
-        //abar com abarT (ok)
-        //props.ln_phi = abar;
-        //props.dA_ln_phi_T = abarT;
+        //props.dA_ln_phi_T.resize(1); //sem esse quando roda "props.dA_ln_phi_T[0] = abarT[0]" da falha na segmentação.
+
+        //props.ln_phi[0] = abar[0]; //resultado: 1.70e-8 , 1 , nan. abar com abarT.
+        //props.dA_ln_phi_T[0] = abarT[0]; //resultado: 1.70e-8 , 1 , nan. abar com abarT.
+
+        //props.ln_phi[0] = amix; //resultado: 9.43584e-09
+        //props.dA_ln_phi_T[0] = amixT;  //]
+        
+        //props.ln_phi = abar; //abar com abarT (ok) aij com aijT (ok) a, aT, aTT
+        //props.dA_ln_phi_T = abarT;//abar com abarT (ok)
         //return;
+
+
     
     for(auto i = 0; i < nspecies; ++i){ // Finalize the calculation of `abar` and `abarT`
-        abar[i] -= amix;
-        abarT[i] -= amixT;}
+          abar[i] -= amix;
+          abarT[i] -= amixT;
+          //props.ln_phi = abar; //teste das derivações abar com abarT (ok)
+          //props.dA_ln_phi_T = abarT;
+          //return;
+          //Erro entre Num e anal Temperatura [0]:   3.25025e-08  abar` and `abarT
+          //Erro entre Num e anal Temperatura [1]:   2.52736e-08  abar` and `abarT
+          //Erro entre Num e anal Temperatura [2]:   2.50986e-09  abar` and `abarT
+
+    }//comentado 19/10/25 as 21h52 para testes 
 
     // Calculate the parameters bba[i] and bmix of the cubic equation of state
-    //     bbar[i] = Omega*R*Tc[i]/Pc[i] as shown in Eq. (3.44)
-    //     bmix = sum(x[i] * bbar[i])
+         //bbar[i] = Omega*R*Tc[i]/Pc[i] as shown in Eq. (3.44)
+         //bmix = sum(x[i] * bbar[i])
 
     double bmix = {};
 
     for(auto i = 0; i < nspecies; ++i){
         bbar[i] = Omega*R*Tcr[i]/Pcr[i]; // see Eq. (13.95) and unnumbered equation before Eq. (13.99)
-        bmix += x[i] * bbar[i];}  // Eq. (13.91) of Smith et al. (2017)
-    
-    //teste das derivações bbar com bmix (erro)
-        //props.ln_phi.resize(1);
-        //props.dA_ln_phi_T.resize(1);
-        //props.ln_phi = bbar; 
-        //props.dA_ln_phi_T.resize(1);
-        //props.dA_ln_phi_T[0] = bmix;
-        //return;
-
-    const auto bmixT = 0.0; // no temperature dependence! // Calculate the temperature and pressure derivatives of bmix
+        bmix += x[i] * bbar[i];
+    }  // Eq. (13.91) of Smith et al. (2017)
+        //teste das derivações bbar com bmix  não faz sentido pois bmix é a soma ponderada de bbar
+ 
+    const auto bmixT = 0.0;// no temperature dependence! // Calculate the temperature and pressure derivatives of bmix
     const auto bmixP = 0.0; // no pressure dependence!
     //const auto bmixV = 0.0; // add 14/05/25
+     //20/10/25
     
     const double beta = P*bmix/(R*T); // Eq. (3.46) // Calculate the auxiliary parameter beta and its partial derivatives betaT (at const P) and betaP (at const T)
     const double betaT = -beta/T; 
     const double betaP =  beta/P; 
-
-    //teste das derivações beta com betaT       
-        //props.ln_phi.resize(1);
+ 
+    //teste das derivações beta com betaT  (ok erro: 5.4307e-09)    
+        //props.ln_phi.resize(1);  
         //props.ln_phi[0] = beta; 
         //props.dA_ln_phi_T.resize(1);
-        //props.dA_ln_phi_T[0] = betaT;
+        //props.dA_ln_phi_T[0] = betaT; //Imagem fora do nucle de segmentação
         //return;
 
-    //teste das derivações beta com betaP       
+    //teste das derivações beta com betaP      //(ok erro:  5.4307e-09)  
         //props.ln_phi.resize(1);
         //props.ln_phi[0] = beta; 
         //props.dA_ln_phi_P.resize(1);
@@ -565,8 +585,10 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
     // Compute the auxiliary variable q and its partial derivatives qT, qTT (at const P) and qP (at const T)
     const double q = amix/(bmix*R*T); // Eq. (3.47)
     const double qT = q*(amixT/amix - 1.0/T); // === amixT/(bmix*R*T) - amix/(bmix*R*T*T)
+               
+
     const double qTT = qT*qT/q + q*(amixTT/amix - amixT*amixT/(amix*amix) + 1.0/(T*T)); // === qT*(amixT/amix - 1.0/T) + q*(amixTT/amix - amixT*amixT/amix/amix + 1.0/T/T)
-    const double qP = 0.0; // from Eq. (3.47), (dq/dP)_T := 0
+    const double qP = 0.0; // from Eq. (3.47), (dq/dP)_T := 0 // não depende de P
     const double qV = 0.0; 
 
     // Convert Eq. (3.48) into a cubic polynomial Z^3 + AZ^2 + BZ + C = 0, and compute the coefficients A, B, C of the cubic equation of state
@@ -583,6 +605,35 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
     const double AP = (epsilon + sigma - 1)*betaP;
     const double BP = (epsilon*sigma - epsilon - sigma)*(2*beta*betaP) + qP*beta - (epsilon + sigma - q)*betaP;
     const double CP = -epsilon*sigma*(3*beta*beta*betaP) - qP*beta*beta - (epsilon*sigma + q)*(2*beta*betaP);
+
+    //teste das derivações q com qT (ok erro: 4.6795e-09)  testado 19/10/25
+                         //qT com qTT (ok erro: 1.42766e-08)  testado 19/10/25
+        //props.ln_phi.resize(1);
+        //props.ln_phi[0] = qT; 
+        //props.dA_ln_phi_T.resize(1);
+        //props.dA_ln_phi_T[0] = qTT;
+        //return;
+    //teste das derivações beta com betaT (ok erro: 5.4307e-09   ) testado 19/10/25
+                         //beta com betaP (ok erro: 5.4307e-09   ) testado 19/10/25
+        //props.ln_phi.resize(1);
+        //props.ln_phi[0] = beta; 
+        //props.dA_ln_phi_P.resize(1);
+        //props.dA_ln_phi_P[0] = betaP;
+        //return;
+
+    //teste das derivações A com AT (ok erro: 6.16296e-06 para epsilon =  1e-6) testado 19/10/25
+                         //A com AP (ok erro: 1.60766e-05 para epsilon =  1e-6) testado 19/10/25
+                         //B com BT (ok erro:  1.85476e-08) testado 19/10/25
+                         //C com CT (ok erro:  2.73726e-08) testado 19/10/25
+        //props.ln_phi.resize(1); 
+        //props.ln_phi[0] = A; 
+        //props.dA_ln_phi_T.resize(1);
+        //props.dA_ln_phi_T[0] = AT;
+        //props.dA_ln_phi_P.resize(1);
+        //props.dA_ln_phi_P[0] = AP;
+        //return;
+
+
 
     auto roots = realRoots(cardano(A, B, C));  // Calculate cubic roots using cardano's method
 
@@ -625,6 +676,19 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
     const auto& VT = props.VT = ZT*V0 + Z*V0T; // Calculate the corrected volumetric properties of the phase//
     const auto& VP = props.VP = ZP*V0 + Z*V0P; //===========================================================//
 
+       //teste das derivações Z com ZT (ok erro: 1.72325e-05 para epsilon =  1e-5) testado 19/10/25 epsilon e-3 ja aumenta o erro.
+                            //Z com ZP (ok erro: 7.75468e-07 para epsilon = 1e-5) testado 19/10/25 
+                            //I com IT (ok erro: 1.11743e-05 para epsilon =  1e-5) testado 19/10/25 epsilon da máquina erro = 0.0003523
+                            //I com IP (ok erro: 0.000342664) testado 19/10/25 erro = 1.97024e-06 para epsilon =  1e-5
+                            //V com VT (ok erro: 1.06043e-08) testado 19/10/25
+                            //V com VP (ok erro: 1.06043e-08) testado 19/10/25
+        //props.ln_phi.resize(1); 
+        //props.ln_phi[0] = Z; 
+        //props.dA_ln_phi_P.resize(1);
+        //props.dA_ln_phi_P[0] = ZP;
+        //return;
+
+
     //===============================================//
     // Calculate the residual properties of the phase//
     //===============================================//
@@ -646,50 +710,134 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
         const double betakV = 0 ;
 
         const double qk    = (1 + abar[k]/amix - bbar[k]/bmix)*q;
-        const double qkT    = ((-abar[k] / (amix * amix)) * amixT + (bbar[k] / (bmix * bmix)) * bmixT) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qT; //==============Derivações============
+        //anterior//const double qkT    = ((-abar[k] / (amix * amix)) * amixT + (bbar[k] / (bmix * bmix)) * bmixT) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qT; //==============Derivações============
         //erro amixP no lugar de 0. tinha amixP
-        const double qkP    = ((-abar[k] / (amix * amix)) * 0. + (bbar[k] / (bmix * bmix)) * bmixP) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qP; //==============Derivações============
-        //const double qkV    = ((-abar[k] / (amix * amix)) * amixV + (bbar[k] / (bmix * bmix)) * bmixV) * q + (1 + abar[k] / amix - bbar[k] / bmix) * qV ;
+        
+      
+        // testes qkT
+        const double Fk  = 1.0 + abar[k]/amix - bbar[k]/bmix;
+        const double FkT = (abarT[k]*amix - abar[k]*amixT)/(amix*amix);
+        const double qkT = FkT * q + Fk * qT; //com esse deu certo......... 1.54133e-08
 
-        const double Ak  = (epsilon + sigma - 1.0)*betak - 1.0;
-        const double AkT = (epsilon + sigma - 1.0) * betakT; //add 12/05/25
-        const double AkP = (epsilon + sigma - 1.0) * betakP; //add 12/05/25
+
+        //teste//const double qkT = ((-(abar[k]+amix)/(amix*amix) * amixT) + (bbar[k]/(bmix*bmix) * bmixT)) * q + (1 + abar[k]/amix - bbar[k]/bmix) * qT; erroi: 3.27339
+        //teste//const double qkT = (-abar[k] / (amix * amix) * amixT + bbar[k] / (bmix * bmix) * bmixT) * q + (1.0 + abar[k] / amix - bbar[k] / bmix) * qT;//novo 19/10/25
+      
+       const double qkP = ((bbar[k]/(bmix*bmix))*bmixP)*q + (1.0 + abar[k]/amix - bbar[k]/bmix)*qP;
+
+        const double Ak  = (epsilon + sigma - 1.0)*betak - 1.0; 
+        const double AkT = (epsilon + sigma - 1.0) * betakT; //add 12/05/25 //2.05858e-06 para epsilon = 1e-6.
+        const double AkP = (epsilon + sigma - 1.0) * betakP; //add 12/05/25 //2.05858e-06 para epsilon = 1e-6.
 
         const double Bk    = ((epsilon*sigma - epsilon - sigma)*(2*betak - beta) + qk - q)*beta - (epsilon + sigma - q)*betak;
-        const double BkT = ((C * (2*betak - beta) + qk - q) * betaT + (C * (2*betakT - betaT) + qkT - qT) * beta) - (-qT * betak + (epsilon + sigma - q) * betakT);
-        const double BkP = ((C * (2*betak - beta) + qk - q) * betaP + (C * (2*betakP - betaP) + qkP - qP) * beta) - (-qP * betak + (epsilon + sigma - q) * betakP);
+        const double BkT = ((C * (2*betak - beta) + qk - q) * betaT + (C * (2*betakT - betaT) + qkT - qT) * beta) - (-qT * betak + (epsilon + sigma - q) * betakT);//3.60689e-05 para epsilon = 1e-6.
+        const double BkP = ((C * (2*betak - beta) + qk - q) * betaP + (C * (2*betakP - betaP) + qkP - qP) * beta) - (-qP * betak + (epsilon + sigma - q) * betakP); //9.54585e-06 para epsilon = 1e-6.
 
         const double C = epsilon*sigma - epsilon - sigma;
-        const double Ck  = (epsilon*sigma*(2*beta + 1) + 2*q - qk)*beta*beta - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*beta*betak;
-        const double CkT = AT * beta * beta + 2.0 * A * beta * betaT - (BT * beta * betak + B * betaT * betak + B * beta * betakT);
-        const double CkP = AP * beta * beta + 2.0 * A * beta * betaP - (BP * beta * betak + B * betaP * betak + B * beta * betakP);
+        //const double Ck = -epsilon*sigma*(3*beta*beta*betak) - (epsilon*sigma + q)*2*beta*betak - qk*beta*beta; //add 20/10/25
+        const double Ck  = -epsilon*sigma*(3*beta*beta*betak)
+                 - (epsilon*sigma + q)*(2*beta*betak)
+                 - qk*beta*beta;
+
+        //const double  CkT = -3.0 * epsilon * sigma * (2.0 * beta * betaT * betak + beta * beta * betakT)- (epsilon * sigma + q) * (2.0 * (betaT * betak + beta * betakT))- qkT * beta * beta - 2.0 * qk * beta * betaT;
+
+        const double CkT = -3.0*epsilon*sigma*(2.0*beta*betaT*betak + beta*beta*betakT)
+                   - (2.0*qT*beta*betak + 2.0*(epsilon*sigma + q)*(betaT*betak + beta*betakT))
+                   - (qkT*beta*beta + 2.0*qk*beta*betaT); //ok  2.48862e-06 para epsilon = 1e-6. -8 para epsilon da máquina.
+
+
+        const double CkP = -epsilon*sigma*(3*(2*beta*betaP*betak + beta*beta*betakP))
+                 - (epsilon*sigma + q)*(2*(betaP*betak + beta*betakP))
+                 - qkP*beta*beta - 2*qk*beta*betaP; //ok 4.99899e-07 para epsilon = 1e-6. -11 para epsilon da máquina.
+
+        //const double Ck  = (epsilon*sigma*(2*beta + 1) + 2*q - qk)*beta*beta - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*beta*betak; //ja estava np código.....
+        //const double CkT = AT * beta * beta + 2.0 * A * beta * betaT - (BT * beta * betak + B * betaT * betak + B * beta * betakT);
+        //const double CkP = AP * beta * beta + 2.0 * A * beta * betaP - (BP * beta * betak + B * betaP * betak + B * beta * betakP);
 
         const double Zk    = -(Ak*Z*Z + (B + Bk)*Z + 2*C + Ck)/(3*Z*Z + 2*A*Z + B);
-        const double ZkT = -(AkT*Z*Z + (B + BkT)*Z + 2*C + CkT) / (3*Z*Z + 2*A*Z + B); //add 12/05/25
-        const double ZkP = -(AkP*Z*Z + (B + BkP)*Z + 2*C + CkP) / (3*Z*Z + 2*A*Z + B); //add 12/05/25
+        //const double ZkT = -(AkT*Z*Z + (B + BkT)*Z + 2*C + CkT) / (3*Z*Z + 2*A*Z + B); //add 12/05/25
+        //const double ZkT = -((AkT*Z*Z + 2.0*Ak*Z*ZT + (B + BkT)*Z + (B + Bk)*ZT + 2.0*CT + CkT) * (3.0*Z*Z + 2.0*A*Z + B)- (Ak*Z*Z + (B + Bk)*Z + 2.0*C + Ck) * (6.0*Z*ZT + 2.0*AT*Z + 2.0*A*ZT + BT)) / pow(3.0*Z*Z + 2.0*A*Z + B, 2); //add 19/10/25
+
+        const double ZkT = -((AkT*Z*Z + 2.0*Ak*Z*ZT + (BT + BkT)*Z + (B + Bk)*ZT + 2.0*CT + CkT) * (3.0*Z*Z + 2.0*A*Z + B)- (Ak*Z*Z + (B + Bk)*Z + 2.0*C + Ck) * (6.0*Z*ZT + 2.0*AT*Z + 2.0*A*ZT + BT)) / pow(3.0*Z*Z + 2.0*A*Z + B, 2);
+
+        //const double ZkP = -(AkP*Z*Z + (B + BkP)*Z + 2*C + CkP) / (3*Z*Z + 2*A*Z + B); //add 12/05/25
+        //const double ZkP = -((AkP*Z*Z + 2.0*Ak*Z*ZP + (B + BkP)*Z + (B + Bk)*ZP + 2.0*CP + CkP) * (3.0*Z*Z + 2.0*A*Z + B)- (Ak*Z*Z + (B + Bk)*Z + 2.0*C + Ck) * (6.0*Z*ZP + 2.0*AP*Z + 2.0*A*ZP + BP))  / pow(3.0*Z*Z + 2.0*A*Z + B, 2);
+
+        const double ZkP = -((AkP*Z*Z + 2.0*Ak*Z*ZP + (BP + BkP)*Z + (B + Bk)*ZP + 2.0*CP + CkP) * (3.0*Z*Z + 2.0*A*Z + B)- (Ak*Z*Z + (B + Bk)*Z + 2.0*C + Ck) * (6.0*Z*ZP + 2.0*AP*Z + 2.0*A*ZP + BP)) / pow(3.0*Z*Z + 2.0*A*Z + B, 2);//add 20/10/25
+
+
 
         const double Ik = (epsilon != sigma) ?
             I + ((Zk + sigma*betak)/(Z + sigma*beta) - (Zk + epsilon*betak)/(Z + epsilon*beta))/(sigma - epsilon) : //true
             I * (1 + betak/beta - (Zk + epsilon*betak)/(Z + epsilon*beta)); //false 
 
-        const double IkT = 0.0;
-        const double IkP = 0.0;
+
+        const double IkT = IT  + (( (ZkT + sigma * betakT) / (Z + sigma * beta)- (Zk + sigma * betak) * (ZT + sigma * betaT) / pow(Z + sigma * beta, 2))  - ( (ZkT + epsilon * betakT) / (Z + epsilon * beta)- (Zk + epsilon * betak) * (ZT + epsilon * betaT) / pow(Z + epsilon * beta, 2))) / (sigma - epsilon);
+
+
+        //const double IkT =  IT   + (( (ZkT + sigma * betakT) / (Z + sigma * beta)  - (Zk + sigma * betak) * (ZT + sigma * betaT) / pow(Z + sigma * beta, 2))- ( (ZkT + epsilon * betakT) / (Z + epsilon * beta) - (Zk + epsilon * betak) * (ZT + epsilon * betaT) / pow(Z + epsilon * beta, 2))) / (sigma - epsilon);
+
+
+double IkP;
+const double EPS = 1e-12;
+
+if (abs(epsilon - sigma) > EPS) {
+    // general case epsilon != sigma
+    auto d1 = Z + sigma * beta;
+    auto d2 = Z + epsilon * beta;
+    IkP = IP + (((ZkP + sigma * betakP) * d1 - (Zk + sigma * betak) * (ZP + sigma * betaP)) / (d1*d1)
+               - ((ZkP + epsilon * betakP) * d2 - (Zk + epsilon * betak) * (ZP + epsilon * betaP)) / (d2*d2)) 
+           / (sigma - epsilon);
+} else {
+    // degenerate case epsilon == sigma
+    auto denom = Z + epsilon * beta;
+    IkP = IP * (1.0 + betak / beta - (Zk + epsilon * betak) / denom)
+          + I * ((betakP * beta - betak * betaP)/(beta*beta)
+                 - ((ZkP + epsilon * betakP) * denom - (Zk + epsilon * betak) * (ZP + epsilon * betaP)) / (denom*denom));
+}
+
+     //teste das derivações betak com betakT (ok erro:  1.22942e-08) testado 19/10/25
+                          //betak com betakP (ok erro:  1.48548e-09) testado 19/10/25
+                          //qk com qkT (ok erro: 0.909034) testado 19/10/25
+                          //betak com betakT (ok erro:  ) testado 19/10/25
+     //props.ln_phi.resize(nspecies);
+     //props.ln_phi[k] = Zk;
+     //props.dA_ln_phi_T.resize(nspecies);
+     //props.dA_ln_phi_T[k] = ZkT;
+     //props.dA_ln_phi_P.resize(nspecies);
+     //props.dA_ln_phi_P[0] = ZkP;
+     //return;
+ 
 
         props.ln_phi[k] = Zk - (Zk - betak)/(Z - beta) - log(Z - beta) + q*I - qk*I - q*Ik;
 
-        //props.ln_phi_T_perturbada[k] = (T + dx);
-        //props.ln_phi_P_perturbada[k] = (P + dx);
+       //anterior //props.dA_ln_phi_T[k] = ZkT - ((Z - beta)*(ZkT - betakT) - (Zk - betak)*(ZT - betaT)) / pow(Z - beta, 2)- (ZT - betaT) / (Z - beta) + qT * I + q * IT - qkT * I - qk * IT - qT * Ik - q * IkT;   // Derivações em 05/05/25 //std::vector<double> ln_phiV;// Derivações em 05/05/25 //std::vector<double> ln_phiV;
+       //anterior //props.dA_ln_phi_P[k] = ZkP - ((Z - beta)*(ZkP - betakP) - (Zk - betak)*(ZP - betaP)) / pow(Z - beta, 2) - (ZP - betaP) / (Z - beta) + qP * I + q * IP - qkP * I - qk * IP - qP * Ik - q * IkP;  // Derivações em 05/05/25    
 
-        props.dA_ln_phi_T[k] = ZkT - ((Z - beta)*(ZkT - betakT) - (Zk - betak)*(ZT - betaT)) / pow(Z - beta, 2) - (ZT - betaT) / (Z - beta) + qT * I + q * IT - qkT * I - qk * IT - qT * Ik - q * IkT;   // Derivações em 05/05/25 //std::vector<double> ln_phiV;// Derivações em 05/05/25 //std::vector<double> ln_phiV;
-        props.dA_ln_phi_P[k] = ZkP - ((Z - beta)*(ZkP - betakP) - (Zk - betak)*(ZP - betaP)) / pow(Z - beta, 2) - (ZP - betaP) / (Z - beta) + qP * I + q * IP - qkP * I - qk * IP - qP * Ik - q * IkP;
+       //testes//props.dA_ln_phi_T[k] = ZkT - ((ZkT - betakT)*(Z - beta) - (Zk - betak)*(ZT - betaT)) / ((Z - beta)*(Z - beta))- (ZT - betaT)/(Z - beta)  + qT*I + q*IT - qkT*I - qk*IT - qT*Ik - q*IkT;
+    //props.dA_ln_phi_T[k] = ZkT   - ((ZkT - betakT)*(Z - beta) - (Zk - betak)*(ZT - betaT)) / ((Z - beta)*(Z - beta)) - (ZT - betaT)/(Z - beta)  + qT*I + q*IT - qkT*I - qk*IT - qT*Ik - q*IkT;
+       //testes//props.dA_ln_phi_T[k] = ZkT  - ((ZkT - betakT)*(Z - beta) - (Zk - betak)*(ZT - betaT)) / ((Z - beta)*(Z - beta))  - (ZT - betaT)/(Z - beta)   + qT*I + q*IT - qkT*I - qk*IT - qT*Ik - q*IkT;
+        
+        props.dA_ln_phi_T[k] = ZkT - ( (ZkT - betakT)*(Z - beta) - (Zk - betak)*(ZT - betaT) ) / ((Z - beta)*(Z - beta)) - (ZT - betaT)/(Z - beta) + (qT*I + q*IT) - (qkT*I + qk*IT) - (qT*Ik + q*IkT);//parece ter dado um pouco certo........
+      //props.dA_ln_phi_T[k] =    ZkT    - ((ZkT - betakT) * (Z - beta) - (Zk - betak) * (ZT - betaT)) / ((Z - beta) * (Z - beta))    - (ZT - betaT) / (Z - beta) + (qT - qkT) * I + (q - qk) * IT - qT * Ik  - q * IkT;
 
-        //props.dN_ln_phi_T[k] = (props.ln_phi_T_perturbada[k] - props.ln_phi[k]) / dx;
-        //props.dN_ln_phi_P[k] = (props.ln_phi_P_perturbada[k] - props.ln_phi[k]) / dx;
 
-        //std::cout << std::fixed << std::setprecision(15);
-        //std::cout << "Erro derivadaT: " << abs (props.dN_ln_phi_T[k]/props.dA_ln_phi_T[k] - 1) << "\n" << std::endl;
-        //std::cout << "Erro derivadaP: " << abs (props.dN_ln_phi_P[k]/props.dA_ln_phi_P[k] - 1) << "\n" << std::endl;
-        //props.ln_phiV[k] = ZkV - ((Z - beta)(ZkV - betakV) - (Zk - betak)(ZV - betaV)) / pow(Z - beta, 2) - (ZV - betaV) / (Z - beta) + qV * I + q * IV - qkV * I - qk * IV - qV * Ik - q * IkV; 
+       //testes//props.dA_ln_phi_T[k] = ZkT - ((ZkT - betakT)*(Z - beta) - (Zk - betak)*(ZT - betaT)) / ((Z - beta)*(Z - beta))  - (ZT - betaT)/(Z - beta)  + qT*I + q*IT - qkT*I - qk*IT - qT*Ik - q*IkT;
+      // props.dA_ln_phi_P[k] = ZkP- ((ZkP - betakP)*(Z - beta) - (Zk - betak)*(ZP - betaP)) / ((Z - beta)*(Z - beta))- (ZP - betaP)/(Z - beta)  + qP*I + q*IP - qkP*I - qk*IP - qP*Ik - q*IkP;
+      // props.dA_ln_phi_P[k] = ZkP  - ( (ZkP - betakP)*(Z - beta) - (Zk - betak)*(ZP - betaP) ) / ((Z - beta)*(Z - beta))- (ZP - betaP)/(Z - beta) + (qP*I + q*IP)    - (qkP*I + qk*IP)    - (qP*Ik + q*IkP);
+
+      props.dA_ln_phi_P[k] = ZkP - ((ZkP - betakP) * (Z - beta) - (Zk - betak) * (ZP - betaP)) / ((Z - beta) * (Z - beta))- (ZP - betaP) / (Z - beta) + (qP - qkP) * I  + (q - qk) * IP - qP * Ik- q * IkP;
+
+
+      //props.dA_ln_phi_P.resize(nspecies);
+      //props.dA_ln_phi_P[0] = ZkP - ((ZkP - betakP) * (Z - beta) - (Zk - betak) * (ZP - betaP)) / ((Z - beta) * (Z - beta))- (ZP - betaP) / (Z - beta) + (qP - qkP) * I  + (q - qk) * IP - qP * Ik- q * IkP;
+  
+
     }
 }
+
+
+
+
+
 

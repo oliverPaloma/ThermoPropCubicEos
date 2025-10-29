@@ -40,3 +40,9 @@ double f_numerica(double x, double dx) {
 double f_analitica(double x){
   return 2*x + 2;
 }
+
+
+
+
+
+ 
