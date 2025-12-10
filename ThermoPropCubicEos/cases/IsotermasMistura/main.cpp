@@ -15,6 +15,13 @@ auto databasePath = "/home/palomajo/Downloads/ThermoPropCubicEos-main/ThermoProp
 //testar apenas um componente pra ver se bate com a isotermas
   auto components = "CO2";
 
+
+
+
+
+
+  
+
    std::vector<double> Tc,Pc,omega;
   
    //auto EoSModel = CubicEOSModel::PengRobinson; 

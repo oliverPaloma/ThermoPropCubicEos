@@ -421,7 +421,9 @@ auto determinePhysicalStateOnedoubleRoot(double a, double b, double e, double s,
     return (Pmin != Pmin) ? StateOfMatter::superCritical : (P < Pmin) ? StateOfMatter::gas : StateOfMatter::liquid;
 }
 
-auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double> &Pcr, std::vector<double> &omega, double T, double P, std::vector<double> &x, CubicEOSModel &model, std::vector<std::vector<double>> &BIP) -> void {
+auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double> &Pcr, 
+    std::vector<double> &omega, double T, double P, std::vector<double> &x, 
+    CubicEOSModel &model, std::vector<std::vector<double>> &BIP) -> void {
     
     auto nspecies = x.size();// The number of species in the phase.
     /// The function that calculates the interaction parameters kij and its temperature derivatives.
@@ -452,21 +454,27 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
 
         const auto [alpha, alphaT, alphaTT] = alphafn(Tr, TrT, omega[k]); //tava rodando com omega troquei pra Omega para testar.... com omega o vetor ficou com T E P.
         a[k]   = factor*alpha; // see Eq. (3.45)
-        aT[k]  = factor*alphaT;
-        aTT[k] = factor*alphaTT;
+        aT[k]  = factor*alphaT; //ok
+        aTT[k] = factor*alphaTT; //ok
         b[k]   = Omega*R*Tcr[k]/Pcr[k]; // Eq. (3.44) //Tem que existir bT e bTT?
-    }
+   
 
-    //teste das derivações a, aT, aTT (ok) 
-        //props.ln_phi = a;
+        
+    }
+       //props.ln_phi.resize(nspecies);       //teste
+        //props.dA_ln_phi_T.resize(nspecies); //teste
+        //props.ln_phi= a;
         //props.dA_ln_phi_T = aT;
         //return; 
+    //teste das derivações a, aT, aTT (ok) 
+       
         //(resultado: 2.57e-8 , 3.05e-8  , 1.81e-8)
 
         //props.ln_phi = aT; //(ok)
         //props.dA_ln_phi_T = aTT;
         //return;
-        //(resultado: 1.31e-8 , 9.43e-9  , 2.95e-8)
+       
+ //(resultado: 1.31e-8 , 9.43e-9  , 2.95e-8)
     // Calculate the parameter `amix` of the phase and the partial molar parameters `abar` of each species
 
     double amix = {};
@@ -514,7 +522,7 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
                 //props.ln_phi[j + nspecies*i] = aijT;
                 //props.dA_ln_phi_T[j + nspecies*i] = aijTT;
                 
-                //(resultado: 2.57e-8 , 1  , nan) para epsilon e-3 resultado: nan , 1  , nan.
+                //(resultado: 2.57e-8 , 1  , nan) para epsilon e-3 
         }
     }
  //return; //teste das derivações aij com aijT (ok)
@@ -572,7 +580,7 @@ auto compute(CubicEOSProps& props, std::vector<double> &Tcr, std::vector<double>
         //props.ln_phi.resize(1);  
         //props.ln_phi[0] = beta; 
         //props.dA_ln_phi_T.resize(1);
-        //props.dA_ln_phi_T[0] = betaT; //Imagem fora do nucle de segmentação
+        //props.dA_ln_phi_T[0] = betaT; 
         //return;
 
     //teste das derivações beta com betaP      //(ok erro:  5.4307e-09)  
@@ -809,7 +817,7 @@ if (abs(epsilon - sigma) > EPS) {
      //return;
  
 
-        props.ln_phi[k] = Zk - (Zk - betak)/(Z - beta) - log(Z - beta) + q*I - qk*I - q*Ik;
+       props.ln_phi[k] = Zk - (Zk - betak)/(Z - beta) - log(Z - beta) + q*I - qk*I - q*Ik;
 
        //anterior //props.dA_ln_phi_T[k] = ZkT - ((Z - beta)*(ZkT - betakT) - (Zk - betak)*(ZT - betaT)) / pow(Z - beta, 2)- (ZT - betaT) / (Z - beta) + qT * I + q * IT - qkT * I - qk * IT - qT * Ik - q * IkT;   // Derivações em 05/05/25 //std::vector<double> ln_phiV;// Derivações em 05/05/25 //std::vector<double> ln_phiV;
        //anterior //props.dA_ln_phi_P[k] = ZkP - ((Z - beta)*(ZkP - betakP) - (Zk - betak)*(ZP - betaP)) / pow(Z - beta, 2) - (ZP - betaP) / (Z - beta) + qP * I + q * IP - qkP * I - qk * IP - qP * Ik - q * IkP;  // Derivações em 05/05/25    
@@ -828,11 +836,8 @@ if (abs(epsilon - sigma) > EPS) {
 
       props.dA_ln_phi_P[k] = ZkP - ((ZkP - betakP) * (Z - beta) - (Zk - betak) * (ZP - betaP)) / ((Z - beta) * (Z - beta))- (ZP - betaP) / (Z - beta) + (qP - qkP) * I  + (q - qk) * IP - qP * Ik- q * IkP;
 
-
       //props.dA_ln_phi_P.resize(nspecies);
       //props.dA_ln_phi_P[0] = ZkP - ((ZkP - betakP) * (Z - beta) - (Zk - betak) * (ZP - betaP)) / ((Z - beta) * (Z - beta))- (ZP - betaP) / (Z - beta) + (qP - qkP) * I  + (q - qk) * IP - qP * Ik- q * IkP;
-  
-
     }
 }
 
