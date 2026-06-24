@@ -1,0 +1,589 @@
+#include "eos.hpp"
+
+//=================================================================================================
+// == REFERENCE ==
+//=================================================================================================
+// The implementation of this module is based on the presentation of the textbook:
+//
+//     Introduction to Chemical Engineering Thermodynamics, 8th Edition, 2017,
+//     J.M. Smith, H. Van Ness, M. Abbott, M. Swihart
+//
+// More specifically, it is based on the information of the following chapters:
+//
+//      3.6 CUBIC EQUATIONS OF STATE, page 95
+//     13.6 RESIDUAL PROPERTIES BY CUBIC EQUATIONS OF STATE, page 87
+//
+//-------------------------------------------------------------------------------------------------
+// For more details and derivation of some formulas, check the document `notes/CubicEOS.lyx`.
+//=================================================================================================
+
+/// A high-order function that return an `alpha` function that calculates alpha, alphaT and alphaTT for a given EOS.
+auto alpha(CubicEOSModel type) -> Fn<AlphaResult(real, real, real)>
+{
+    // The alpha function for van der Waals EOS (see Table 3.1 of Smith et al. 2017)
+    auto alphaVDW = [](real Tr, real TrT, real omega) -> AlphaResult
+    {
+        const real alpha = 1.0;
+        const real alphaT = 0.0;
+        const real alphaTT = 0.0;
+        return { alpha, alphaT, alphaTT };
+    };
+
+    // The alpha function for Redlich-Kwong EOS
+    auto alphaRK = [](real Tr, real TrT, real omega) -> AlphaResult
+    {
+        const real alpha = 1.0/sqrt(Tr);
+        const real alphaTr = -0.5/Tr * alpha;
+        const real alphaTrTr = -0.5/Tr * (alphaTr - alpha/Tr);
+        const real alphaT = alphaTr*TrT;
+        const real alphaTT = alphaTrTr*TrT*TrT;
+        return { alpha, alphaT, alphaTT };
+    };
+
+    // The alpha function for Soave-Redlich-Kwong EOS
+    auto alphaSRK = [](real Tr, real TrT, real omega) -> AlphaResult
+    {
+        const real m = 0.480 + 1.574*omega - 0.176*omega*omega;
+        const real sqrtTr = sqrt(Tr);
+        const real aux = 1.0 + m*(1.0 - sqrtTr);
+        const real auxTr = -0.5*m/sqrtTr;
+        const real auxTrTr = 0.25*m/(Tr*sqrtTr);
+        const real alpha = aux*aux;
+        const real alphaTr = 2.0*aux*auxTr;
+        const real alphaTrTr = 2.0*(auxTr*auxTr + aux*auxTrTr);
+        const real alphaT = alphaTr * TrT;
+        const real alphaTT = alphaTrTr * TrT*TrT;
+        return { alpha, alphaT, alphaTT };
+    };
+
+    // The alpha function for Peng-Robinson (1978) EOS
+    auto alphaPR = [](real Tr, real TrT, real omega) -> AlphaResult
+    {
+        // Jaubert, J.-N., Vitu, S., Mutelet, F. and Corriou, J.-P., 2005.
+        // Extension of the PPR78 model (predictive 1978, Peng–Robinson EOS
+        // with temperature dependent kij calculated through a group
+        // contribution method) to systems containing aromatic compounds.
+        // Fluid Phase Equilibria, 237(1-2), pp.193–211.
+        const real m = omega <= 0.491 ?
+            0.374640 + 1.54226*omega - 0.269920*omega*omega :
+            0.379642 + 1.48503*omega - 0.164423*omega*omega + 0.016666*omega*omega*omega;
+        const real sqrtTr = sqrt(Tr);
+        const real aux = 1.0 + m*(1.0 - sqrtTr);
+        const real auxTr = -0.5*m/sqrtTr;
+        const real auxTrTr = 0.25*m/(Tr*sqrtTr);
+        const real alpha = aux*aux;
+        const real alphaTr = 2.0*aux*auxTr;
+        const real alphaTrTr = 2.0*(auxTr*auxTr + aux*auxTrTr);
+        const real alphaT = alphaTr * TrT;
+        const real alphaTT = alphaTrTr * TrT*TrT;
+        return { alpha, alphaT, alphaTT };
+    };
+
+    switch(type)
+    {
+        case CubicEOSModel::VanDerWaals: return alphaVDW;
+        case CubicEOSModel::RedlichKwong: return alphaRK;
+        case CubicEOSModel::SoaveRedlichKwong: return alphaSRK;
+        case CubicEOSModel::PengRobinson: return alphaPR;
+        default: return alphaPR;
+    }
+}
+
+auto computesigma(CubicEOSModel type) -> real
+{
+    switch(type)
+    {
+        case CubicEOSModel::VanDerWaals: return 0.0;
+        case CubicEOSModel::RedlichKwong: return 1.0;
+        case CubicEOSModel::SoaveRedlichKwong: return 1.0;
+        case CubicEOSModel::PengRobinson: return 1.0 + 1.4142135623730951;
+        default: return 1.0 + 1.4142135623730951;
+    }
+}
+
+auto computeepsilon(CubicEOSModel type) -> real
+{
+    switch(type)
+    {
+        case CubicEOSModel::VanDerWaals: return 0.0;
+        case CubicEOSModel::RedlichKwong: return 0.0;
+        case CubicEOSModel::SoaveRedlichKwong: return 0.0;
+        case CubicEOSModel::PengRobinson: return 1.0 - 1.4142135623730951;
+        default: return 1.0 - 1.4142135623730951;
+    }
+}
+
+auto computeOmega(CubicEOSModel type) -> real
+{
+    switch(type)
+    {
+        case CubicEOSModel::VanDerWaals: return 1.0/8.0;
+        case CubicEOSModel::RedlichKwong: return 0.08664;
+        case CubicEOSModel::SoaveRedlichKwong: return 0.08664;
+        case CubicEOSModel::PengRobinson: return 0.0777960739;
+        default: return 0.0777960739;
+    }
+}
+
+auto computePsi(CubicEOSModel type) -> real
+{
+    switch(type)
+    {
+        case CubicEOSModel::VanDerWaals: return 27.0/64.0;
+        case CubicEOSModel::RedlichKwong: return 0.42748;
+        case CubicEOSModel::SoaveRedlichKwong: return 0.42748;
+        case CubicEOSModel::PengRobinson: return 0.457235529;
+        default: return 0.457235529;
+    }
+}
+
+/// Compute the local minimum of pressure along an isotherm of a cubic equation of state.
+/// @param a The @eq{a_\mathrm{mix}} variable in the equation of state
+/// @param b The @eq{b_\mathrm{mix}} variable in the equation of state
+/// @param e The @eq{\epsilon} parameter in the cubic equation of state
+/// @param s The @eq{\sigma} parameter in the cubic equation of state
+/// @param T The temperature (in K)
+/// @return real
+auto computeLocalMinimumPressurealongIsotherm(real a, real b, real e, real s, 
+  real T) -> real
+{
+    const auto RT = R*T;
+
+    auto V = b;
+    real Pprev = 0.0;
+
+    const auto maxiters = 100;
+    const auto tolerance = 1e-6;
+
+    auto i = 0;
+    for(; i < maxiters; ++i)
+    {
+        const auto t  = (V + e*b)*(V + s*b);
+        const auto tV = 2*V + b*(e + s);
+
+        const auto w   = 1/b * sqrt(RT/(a*tV));
+        const auto wV  = -w/tV;
+        const auto wVV = -3*wV/tV;
+
+        const auto q   = 1 + t*w - V/b;
+        const auto qV  = tV*w + t*wV - 1/b;
+        const auto qVV = t*wVV;
+
+        const auto f = q*qV;
+        const auto J = qV*qV + q*qVV;
+
+        const auto dV = -f/J;
+
+        V += dV;
+
+        const auto P = RT/(V - b) - a/((V + e*b)*(V + s*b));
+
+        if(abs(P - Pprev) < abs(P) * tolerance)
+            return abs(q) < abs(qV) ? P : NaN;
+
+        Pprev = P;
+    }
+
+    assert(("Could not compute the minimum pressure along an isotherm of a cubic equation of state.",
+      (i == maxiters))); 
+
+    return NaN;
+}
+
+/// Compute the residual Gibbs energy of the fluid for a given compressibility factor.
+/// @param Z The compressibility factor
+/// @param beta The @eq{\beta=Pb/(RT)} variable in the cubic equation of state
+/// @param q The @eq{q=a/(bRT)} variable in the cubic equation of state
+/// @param epsilon The @eq{\epsilon} parameter in the cubic equation of state
+/// @param sigma The @eq{\sigma} parameter in the cubic equation of state
+/// @param T The temperature (in K)
+auto computeResidualGibbsEnergy(real Z, real beta, real q, real epsilon, 
+  real sigma, real T) -> real
+{
+    real I = 0.0;
+
+    if(epsilon != sigma) // CASE I:  Eq. (13.72) of Smith et al. (2017)
+        I = log((Z + sigma*beta)/(Z + epsilon*beta))/(sigma - epsilon); // @eq{ I=\frac{1}{\sigma-\epsilon}\ln\left(\frac{Z+\sigma\beta}{Z+\epsilon\beta}\right) }
+    else // CASE II: Eq. (13.74) of Smith et al. (2017)
+        I = beta/(Z + epsilon*beta); // @eq{ I=\frac{\beta}{Z+\epsilon\beta} }
+
+    const auto Gres = R*T*(Z - 1 - log(Z - beta) - q*I); // from Eq. (13.74) of Smith et al. (2017)
+
+    return Gres;
+}
+
+/// Determine the state of matter of the fluid when three real roots are available (either liquid or gas).
+/// @param Zmin The compressibility factor with minimum value
+/// @param Zmax The compressibility factor with maximum value
+/// @param beta The @eq{\beta=Pb/(RT)} variable in the cubic equation of state
+/// @param q The @eq{q=a/(bRT)} variable in the cubic equation of state
+/// @param epsilon The @eq{\epsilon} parameter in the cubic equation of state
+/// @param sigma The @eq{\sigma} parameter in the cubic equation of state
+/// @param T The temperature (in K)
+/// @return StateOfMatter The state of matter of the fluid, by comparing the residual Gibbs energy of the two states.
+auto determinePhysicalStateThreerealRoots(real Zmin, real Zmax, real beta, 
+  real q, real epsilon, real sigma, real T) -> StateOfMatter
+{
+    const auto Gresmin = computeResidualGibbsEnergy(Zmin, beta, q, epsilon, sigma, T);
+    const auto Gresmax = computeResidualGibbsEnergy(Zmax, beta, q, epsilon, sigma, T);
+    return Gresmin < Gresmax ? StateOfMatter::liquid : StateOfMatter::gas;
+}
+
+/// Determine the state of matter of the fluid when only one real root is available (either supercritical or low pressure gas).
+/// @param a The @eq{a_\mathrm{mix}} variable in the equation of state
+/// @param b The @eq{b_\mathrm{mix}} variable in the equation of state
+/// @param e The @eq{\epsilon} parameter in the cubic equation of state
+/// @param s The @eq{\sigma} parameter in the cubic equation of state
+/// @param T The temperature (in K)
+/// @param P The pressure (in Pa)
+/// @return StateOfMatter The state of matter of the fluid, by comparing the residual Gibbs energy of the two states.
+auto determinePhysicalStateOnerealRoot(real a, real b, real e, real s, 
+  real T, real P) -> StateOfMatter
+{
+    const auto Pmin = computeLocalMinimumPressurealongIsotherm(a, b, e, s, T);
+    return (Pmin != Pmin) ? StateOfMatter::superCritical : (P < Pmin) ? StateOfMatter::gas : StateOfMatter::liquid;
+}
+
+
+auto compute(CubicEOSProps& props, std::vector<real> &Tcr, 
+  std::vector<real> &Pcr, std::vector<real> &omega, real T, real P, 
+  std::vector<real> &x, CubicEOSModel &model, 
+  std::vector<std::vector<real>> &BIP) -> void
+{
+
+    /// The number of species in the phase.
+    auto nspecies = x.size();
+
+    /// The function that calculates the interaction parameters kij and its temperature derivatives.
+
+    static std::vector<real> a(nspecies);     ///< Auxiliary array
+    static std::vector<real> aT(nspecies);    ///< Auxiliary array
+    static std::vector<real> aTT(nspecies);   ///< Auxiliary array
+    static std::vector<real> b(nspecies);     ///< Auxiliary array
+    static std::vector<real> abar(nspecies);  ///< Auxiliary array
+    static std::vector<real> abarT(nspecies); ///< Auxiliary array
+    static std::vector<real> bbar(nspecies);  ///< Auxiliary array
+    static std::vector<std::vector<real>> aij(nspecies,
+      std::vector<real>(nspecies)); ///< Binary interaction parameters
+
+    // Check if the mole fractions are zero or non-initialized
+    if(nspecies == 0 || *std::max_element(x.begin(),x.end()) <= 0.0)
+        return;
+
+    // Auxiliary variables
+    const auto Psi = computePsi(model);
+    const auto Omega = computeOmega(model);
+    const auto epsilon = computeepsilon(model);
+    const auto sigma = computesigma(model);
+    const auto alphafn = alpha(model);
+
+    // Calculate the parameters `a` and `b` of the cubic equation of state for each species
+    for(auto k = 0; k < nspecies; ++k)
+    {
+        const real factor = Psi*R*R*(Tcr[k]*Tcr[k])/Pcr[k]; // factor in Eq. (3.45) multiplying alpha
+        const auto TrT = 1.0/Tcr[k];
+        const auto Tr = T * TrT;
+        const auto [alpha, alphaT, alphaTT] = alphafn(Tr, TrT, omega[k]);
+        a[k]   = factor*alpha; // see Eq. (3.45)
+        aT[k]  = factor*alphaT;
+        aTT[k] = factor*alphaTT;
+        b[k]   = Omega*R*Tcr[k]/Pcr[k]; // Eq. (3.44)
+    }
+
+    // Calculate the parameter `amix` of the phase and the partial molar parameters `abar` of each species
+    real amix = {};
+    real amixT = {};
+    real amixTT = {};
+    std::fill(abar.begin(), abar.end(), 0.0);
+    std::fill(abarT.begin(), abarT.end(), 0.0);
+    for(auto i = 0; i < nspecies; ++i)
+    {
+        for(auto j = 0; j < nspecies; ++j)
+        {
+            const real r   = 1.0 - BIP[i][j];
+            const real rT  = 0.0;
+            const real rTT = 0.0;
+
+            const real s   = sqrt(a[i]*a[j]); // Eq. (13.93)
+            const real sT  = 0.5*s/(a[i]*a[j]) * (aT[i]*a[j] + a[i]*aT[j]);
+            const real sTT = 0.5*s/(a[i]*a[j]) * (aTT[i]*a[j] + 2*aT[i]*aT[j] + a[i]*aTT[j]) - sT*sT/s;
+
+            const real aij_val   = r*s;
+            const real aijT_val  = rT*s + r*sT;
+            const real aijTT_val = rTT*s + 2.0*rT*sT + r*sTT;
+
+            aij[i][j] = aij_val;
+
+            amix   += x[i] * x[j] * aij_val; // Eq. (13.92) of Smith et al. (2017)
+            amixT  += x[i] * x[j] * aijT_val;
+            amixTT += x[i] * x[j] * aijTT_val;
+
+            abar[i]  += 2 * x[j] * aij_val;  // see Eq. (13.94)
+            abarT[i] += 2 * x[j] * aijT_val;
+        }
+    }
+
+    // Finalize the calculation of `abar` and `abarT`
+    for(auto i = 0; i < nspecies; ++i)
+    {
+        abar[i] -= amix;
+        abarT[i] -= amixT;
+    }
+
+    // Calculate the parameters bba[i] and bmix of the cubic equation of state
+    //     bbar[i] = Omega*R*Tc[i]/Pc[i] as shown in Eq. (3.44)
+    //     bmix = sum(x[i] * bbar[i])
+    real bmix = {};
+    for(auto i = 0; i < nspecies; ++i)
+    {
+        bbar[i] = Omega*R*Tcr[i]/Pcr[i]; // see Eq. (13.95) and unnumbered equation before Eq. (13.99)
+        bmix += x[i] * bbar[i];  // Eq. (13.91) of Smith et al. (2017)
+    }
+
+    // Calculate the temperature and pressure derivatives of bmix
+    const auto bmixT = 0.0; // no temperature dependence!
+    const auto bmixP = 0.0; // no pressure dependence!
+
+    // Calculate the auxiliary parameter beta and its partial derivatives betaT (at const P) and betaP (at const T)
+    const real beta = P*bmix/(R*T); // Eq. (3.46)
+    const real betaT = -beta/T; // note bmixT = 0
+    const real betaP =  beta/P; // note bmixP = 0
+
+    // Compute the auxiliary variable q and its partial derivatives qT, qTT (at const P) and qP (at const T)
+    const real q = amix/(bmix*R*T); // Eq. (3.47)
+    const real qT = q*(amixT/amix - 1.0/T); // === amixT/(bmix*R*T) - amix/(bmix*R*T*T)
+    const real qTT = qT*qT/q + q*(amixTT/amix - amixT*amixT/(amix*amix) + 1.0/(T*T)); // === qT*(amixT/amix - 1.0/T) + q*(amixTT/amix - amixT*amixT/amix/amix + 1.0/T/T)
+    const real qP = 0.0; // from Eq. (3.47), (dq/dP)_T := 0
+
+    // Convert Eq. (3.48) into a cubic polynomial Z^3 + AZ^2 + BZ + C = 0, and compute the coefficients A, B, C of the cubic equation of state
+    const real A = (epsilon + sigma - 1)*beta - 1;
+    const real B = (epsilon*sigma - epsilon - sigma)*beta*beta - (epsilon + sigma - q)*beta;
+    const real C = -epsilon*sigma*beta*beta*beta - (epsilon*sigma + q)*beta*beta;
+
+    // Calculate AT := (dA/dT)_P, BT := (dB/dT)_P and CT := (dC/dT)_P (i.e., partial derivatives of A, B, C with respect to T at constant P)
+    const real AT = (epsilon + sigma - 1)*betaT;
+    const real BT = (epsilon*sigma - epsilon - sigma)*(2*beta*betaT) + qT*beta - (epsilon + sigma - q)*betaT;
+    const real CT = -epsilon*sigma*(3*beta*beta*betaT) - qT*beta*beta - (epsilon*sigma + q)*(2*beta*betaT);
+
+    // Calculate AP := (dA/dP)_T, BP := (dB/dP)_T and CP := (dC/dP)_T (i.e., partial derivatives of A, B, C with respect to P at constant T)
+    const real AP = (epsilon + sigma - 1)*betaP;
+    const real BP = (epsilon*sigma - epsilon - sigma)*(2*beta*betaP) + qP*beta - (epsilon + sigma - q)*betaP;
+    const real CP = -epsilon*sigma*(3*beta*beta*betaP) - qP*beta*beta - (epsilon*sigma + q)*(2*beta*betaP);
+
+    // Calculate cubic roots using cardano's method
+    auto roots = realRoots(cardano(A, B, C));
+
+    // Ensure there are either 1 or 3 real roots!
+    assert(roots.size() == 1 || roots.size() == 3);
+
+    // Determine the physical state of the fluid phase for given TPx conditions and its compressibility factor
+    real Z = {};
+
+    if(roots.size() == 3)
+    {
+        const auto Zmax = std::max({roots[0], roots[1], roots[2]});
+        const auto Zmin = std::min({roots[0], roots[1], roots[2]});
+        props.som = determinePhysicalStateThreerealRoots(Zmin, Zmax, beta, q, epsilon, sigma, T);
+        Z = (props.som == StateOfMatter::gas) ? Zmax : Zmin;
+    }
+    else
+    {
+        props.som = determinePhysicalStateOnerealRoot(amix, bmix, epsilon, sigma, T, P);
+        Z = roots[0];
+    }
+
+    // Calculate ZT := (dZ/dT)_P and ZP := (dZ/dP)_T
+    const real ZT = -(AT*Z*Z + BT*Z + CT)/(3*Z*Z + 2*A*Z + B); // === (ZZZ + A*ZZ + B*Z + C)_T = 3*ZZ*ZT + AT*ZZ + 2*A*Z*ZT + BT*Z + B*ZT + CT = 0 => (3*ZZ + 2*A*Z + B)*ZT = -(AT*ZZ + BT*Z + CT)
+    const real ZP = -(AP*Z*Z + BP*Z + CP)/(3*Z*Z + 2*A*Z + B); // === (ZZZ + A*ZZ + B*Z + C)_P = 3*ZZ*ZP + AP*ZZ + 2*A*Z*ZP + BP*Z + B*ZP + CP = 0 => (3*ZZ + 2*A*Z + B)*ZP = -(AP*ZZ + BP*Z + CP)
+
+    //=========================================================================================
+    // Calculate the integration factor I, IT := (dI/dT)_P and IP := (dI/dP)_T
+    //=========================================================================================
+    real I = {};
+    real IT = {};
+    real IP = {};
+
+    if(epsilon != sigma) // CASE I:  Eq. (13.72) of Smith et al. (2017)
+    {
+        I = log((Z + sigma*beta)/(Z + epsilon*beta))/(sigma - epsilon); // @eq{ I=\frac{1}{\sigma-\epsilon}\ln\left(\frac{Z+\sigma\beta}{Z+\epsilon\beta}\right) }
+        IT = ((ZT + sigma*betaT)/(Z + sigma*beta) - (ZT + epsilon*betaT)/(Z + epsilon*beta))/(sigma - epsilon); // @eq{ I_{T}\equiv\left(\frac{\partial I}{\partial T}\right)_{P}=\frac{1}{\sigma-\epsilon}\left(\frac{Z_{T}+\sigma\beta_{T}}{Z+\sigma\beta}-\frac{Z_{T}+\epsilon\beta_{T}}{Z+\epsilon\beta}\right) }
+        IP = ((ZP + sigma*betaP)/(Z + sigma*beta) - (ZP + epsilon*betaP)/(Z + epsilon*beta))/(sigma - epsilon); // @eq{ I_{P}\equiv\left(\frac{\partial I}{\partial P}\right)_{T}=\frac{1}{\sigma-\epsilon}\left(\frac{Z_{P}+\sigma\beta_{P}}{Z+\sigma\beta}-\frac{Z_{P}+\epsilon\beta_{P}}{Z+\epsilon\beta}\right) }
+    }
+    else // CASE II: Eq. (13.74) of Smith et al. (2017)
+    {
+        I = beta/(Z + epsilon*beta); // @eq{ I=\frac{\beta}{Z+\epsilon\beta} }
+        IT = I*(betaT/beta - (ZT + epsilon*betaT)/(Z + epsilon*beta)); // @eq{ I_{T}\equiv\left(\frac{\partial I}{\partial T}\right)_{P}=I\left(\frac{\beta_{T}}{\beta}-\frac{Z_{T}+\epsilon\beta_{T}}{Z+\epsilon\beta}\right) }
+        IP = I*(betaP/beta - (ZP + epsilon*betaP)/(Z + epsilon*beta)); // @eq{ I_{P}\equiv\left(\frac{\partial I}{\partial P}\right)_{T}=I\left(\frac{\beta_{P}}{\beta}-\frac{Z_{P}+\epsilon\beta_{P}}{Z+\epsilon\beta}\right) }
+    }
+
+    //=========================================================================================
+    // Calculate the ideal volume properties of the phase
+    //=========================================================================================
+    const real V0  =  R*T/P;
+    const real V0T =  V0/T;
+    const real V0P = -V0/P;
+
+    //=========================================================================================
+    // Calculate the corrected volumetric properties of the phase
+    //=========================================================================================
+    const auto& V  = props.V  = Z*V0;
+    const auto& VT = props.VT = ZT*V0 + Z*V0T;
+    const auto& VP = props.VP = ZP*V0 + Z*V0P;
+
+    //=========================================================================================
+    // Calculate the residual properties of the phase
+    //=========================================================================================
+    const auto& Gres  = props.Gres  = R*T*(Z - 1 - log(Z - beta) - q*I); // from Eq. (13.74) of Smith et al. (2017)
+    const auto& Hres  = props.Hres  = R*T*(Z - 1 + T*qT*I); // equation after Eq. (13.74), but using T*qT instead of Tr*qTr, which is equivalent
+    const auto& Cpres = props.Cpres = Hres/T + R*T*(ZT + qT*I + T*qTT*I + T*qT*IT); // from Eq. (2.19), Cp(res) := (dH(res)/dT)P === R*(Z - 1 + T*qT*I) + R*T*(ZT + qT*I + T*qTT*I + T*qT*IT) = H_res/T + R*T*(ZT + qT*I + T*qTT*I + T*qT*IT)
+
+    //=========================================================================================
+    // Calculate the fugacity coefficients for each species
+    //=========================================================================================
+    props.ln_phi.resize(nspecies);
+    props.ln_phiT.resize(nspecies);
+    props.ln_phiP.resize(nspecies);
+    props.ln_phi_xk.resize(nspecies);
+    for (auto i = 0; i < nspecies; ++i) props.ln_phi_xk[i].resize(nspecies);
+
+    const real den = 3*Z*Z + 2*A*Z + B;
+
+    std::vector<real> betas(nspecies);
+    std::vector<real> amix_x(nspecies);
+    std::vector<real> beta_x(nspecies);
+    std::vector<real> q_x(nspecies);
+    std::vector<real> A_x(nspecies);
+    std::vector<real> B_x(nspecies);
+    std::vector<real> C_x(nspecies);
+    std::vector<real> Z_x(nspecies);
+    std::vector<real> I_x(nspecies);
+
+    for(auto j = 0; j < nspecies; ++j)
+    {
+        betas[j] = P*bbar[j]/(R*T);
+        amix_x[j] = abar[j] + amix;
+        beta_x[j] = betas[j];
+        q_x[j] = q*(amix_x[j]/amix - bbar[j]/bmix);
+
+        A_x[j] = (epsilon + sigma - 1)*beta_x[j];
+        B_x[j] = (epsilon*sigma - epsilon - sigma)*(2*beta*beta_x[j]) + q_x[j]*beta - (epsilon + sigma - q)*beta_x[j];
+        C_x[j] = -epsilon*sigma*(3*beta*beta*beta_x[j]) - q_x[j]*beta*beta - (epsilon*sigma + q)*(2*beta*beta_x[j]);
+
+        Z_x[j] = -(A_x[j]*Z*Z + B_x[j]*Z + C_x[j])/den;
+
+        if(epsilon != sigma)
+        {
+            I_x[j] = ((Z_x[j] + sigma*beta_x[j])/(Z + sigma*beta) - (Z_x[j] + epsilon*beta_x[j])/(Z + epsilon*beta))/(sigma - epsilon);
+        }
+        else
+        {
+            I_x[j] = I*(beta_x[j]/beta - (Z_x[j] + epsilon*beta_x[j])/(Z + epsilon*beta));
+        }
+    }
+//k= -14928
+
+for(auto k = 0; k < nspecies; ++k)
+    {
+        const real betak = betas[k];
+        const real betakT = -betak/T;
+        const real betakP =  betak/P;
+
+        const real qk    = (1 + abar[k]/amix - bbar[k]/bmix)*q;
+        const real qkT   = qT*(1 + abar[k]/amix - bbar[k]/bmix) + q*((abarT[k]*amix - abar[k]*amixT)/(amix*amix));
+        const real qkP   = qP*(1 + abar[k]/amix - bbar[k]/bmix);
+
+        const real Ak    = (epsilon + sigma - 1.0)*betak - 1.0;
+        const real AkT = (epsilon + sigma - 1.0)*betakT;
+        const real AkP = (epsilon + sigma - 1.0)*betakP;
+
+        const real Bk_base = (epsilon*sigma - epsilon - sigma)*(2*betak - beta) + qk - q;
+        const real Bk    = Bk_base*beta - (epsilon + sigma - q)*betak;
+        const real BkT = ((epsilon*sigma - epsilon - sigma)*(2*betakT - betaT) + qkT - qT)*beta + Bk_base*betaT - (epsilon + sigma - q)*betakT + qT*betak;
+        const real BkP = ((epsilon*sigma - epsilon - sigma)*(2*betakP - betaP) + qkP - qP)*beta + Bk_base*betaP - (epsilon + sigma - q)*betakP + qP*betak;
+
+        const real innerC = epsilon*sigma*(2*beta + 1) + 2*q - qk;
+        const real Ck    = innerC*beta*beta - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*beta*betak;
+        const real innerC_T = epsilon*sigma*(2*betaT) + 2*qT - qkT;
+        const real innerC_P = epsilon*sigma*(2*betaP) + 2*qP - qkP;
+        const real CkT = innerC_T*beta*beta + innerC*2*beta*betaT - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*(betaT*betak + beta*betakT) - (2*qT + 3*epsilon*sigma*betaT)*beta*betak;
+        const real CkP = innerC_P*beta*beta + innerC*2*beta*betaP - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*(betaP*betak + beta*betakP) - (2*qP + 3*epsilon*sigma*betaP)*beta*betak;
+
+        const real numerator = Ak*Z*Z + (B + Bk)*Z + 2*C + Ck;
+        const real Zk    = -numerator/den;
+
+        const real ZkT_num = AkT*Z*Z + Ak*2*Z*ZT + (BT + BkT)*Z + (B + Bk)*ZT + 2*CT + CkT;
+        const real ZkP_num = AkP*Z*Z + Ak*2*Z*ZP + (BP + BkP)*Z + (B + Bk)*ZP + 2*CP + CkP;
+        const real denT = (6*Z + 2*A)*ZT + 2*AT*Z + BT;
+        const real denP = (6*Z + 2*A)*ZP + 2*AP*Z + BP;
+        const real ZkT = -(ZkT_num*den - numerator*denT)/(den*den);
+        const real ZkP = -(ZkP_num*den - numerator*denP)/(den*den);
+
+        real Ik = {};
+        real IkT = {};
+        real IkP = {};
+
+        if(epsilon != sigma)
+        {
+            Ik = I + ((Zk + sigma*betak)/(Z + sigma*beta) - (Zk + epsilon*betak)/(Z + epsilon*beta))/(sigma - epsilon);
+
+            const real term1T = ((ZkT + sigma*betakT)*(Z + sigma*beta) - (Zk + sigma*betak)*(ZT + sigma*betaT))/((Z + sigma*beta)*(Z + sigma*beta));
+            const real term2T = ((ZkT + epsilon*betakT)*(Z + epsilon*beta) - (Zk + epsilon*betak)*(ZT + epsilon*betaT))/((Z + epsilon*beta)*(Z + epsilon*beta));
+            IkT = IT + (term1T - term2T)/(sigma - epsilon);
+
+            const real term1P = ((ZkP + sigma*betakP)*(Z + sigma*beta) - (Zk + sigma*betak)*(ZP + sigma*betaP))/((Z + sigma*beta)*(Z + sigma*beta));
+            const real term2P = ((ZkP + epsilon*betakP)*(Z + epsilon*beta) - (Zk + epsilon*betak)*(ZP + epsilon*betaP))/((Z + epsilon*beta)*(Z + epsilon*beta));
+            IkP = IP + (term1P - term2P)/(sigma - epsilon);
+        }
+        else
+        {
+            Ik = I * (1 + betak/beta - (Zk + epsilon*betak)/(Z + epsilon*beta));
+            IkT = IT + I*(betakT/beta - (ZkT + epsilon*betakT)/(Z + epsilon*beta));
+            IkP = IP + I*(betakP/beta - (ZkP + epsilon*betakP)/(Z + epsilon*beta));
+        }
+
+        props.ln_phi[k] = Zk - (Zk - betak)/(Z - beta) - log(Z - beta) + q*I - qk*I - q*Ik;
+        props.ln_phiT[k] = ZkT - ((ZkT - betakT)*(Z - beta) - (Zk - betak)*(ZT - betaT))/((Z - beta)*(Z - beta)) - (ZT - betaT)/(Z - beta) + qT*I + q*IT - qkT*I - qk*IT - qT*Ik - q*IkT;
+        props.ln_phiP[k] = ZkP - ((ZkP - betakP)*(Z - beta) - (Zk - betak)*(ZP - betaP))/((Z - beta)*(Z - beta)) - (ZP - betaP)/(Z - beta) + qP*I + q*IP - qkP*I - qk*IP - qP*Ik - q*IkP;
+
+        for(auto j = 0; j < nspecies; ++j)
+        {
+            const real betak_xj = 0.0;
+            const real qk_xj = q_x[j]*(1 + abar[k]/amix - bbar[k]/bmix) + q*(((2*aij[k][j] - amix_x[j])*amix - abar[k]*amix_x[j])/(amix*amix) + bbar[k]*bbar[j]/(bmix*bmix));
+
+            const real Bk_xj_base = (epsilon*sigma - epsilon - sigma)*(2*betak - beta) + qk - q;
+            const real Bk_xj = ((epsilon*sigma - epsilon - sigma)*(-beta_x[j]) + qk_xj - q_x[j])*beta + Bk_xj_base*beta_x[j] + q_x[j]*betak;
+
+            const real innerC_xj = epsilon*sigma*(2*beta_x[j]) + 2*q_x[j] - qk_xj;
+            const real Ck_xj = innerC_xj*beta*beta + (epsilon*sigma*(2*beta + 1) + 2*q - qk)*2*beta*beta_x[j] - (2*(epsilon*sigma + q) + 3*epsilon*sigma*beta)*(beta_x[j]*betak) - (2*q_x[j] + 3*epsilon*sigma*beta_x[j])*beta*betak;
+
+            const real numerator_xj = Ak*2*Z*Z_x[j] + (B_x[j] + Bk_xj)*Z + (B + Bk)*Z_x[j] + 2*C_x[j] + Ck_xj;
+            const real den_xj = (6*Z + 2*A)*Z_x[j] + 2*A_x[j]*Z + B_x[j];
+            const real Zk_xj = -(numerator_xj*den - numerator*den_xj)/(den*den);
+
+            real Ik_xj = {};
+            if(epsilon != sigma)
+            {
+                const real term1 = ((Zk_xj + sigma*betak_xj)*(Z + sigma*beta) - (Zk + sigma*betak)*(Z_x[j] + sigma*beta_x[j]))/((Z + sigma*beta)*(Z + sigma*beta));
+                const real term2 = ((Zk_xj + epsilon*betak_xj)*(Z + epsilon*beta) - (Zk + epsilon*betak)*(Z_x[j] + epsilon*beta_x[j]))/((Z + epsilon*beta)*(Z + epsilon*beta));
+                Ik_xj = I_x[j] + (term1 - term2)/(sigma - epsilon);
+            }
+            else
+            {
+                Ik_xj = I_x[j] + I*(betak_xj/beta - (Zk_xj + epsilon*betak_xj)/(Z + epsilon*beta));
+            }
+
+            props.ln_phi_xk[k][j] = Zk_xj - ((Zk_xj - betak_xj)*(Z - beta) - (Zk - betak)*(Z_x[j] - beta_x[j]))/((Z - beta)*(Z - beta)) - (Z_x[j] - beta_x[j])/(Z - beta) + q_x[j]*I + q*I_x[j] - qk_xj*I - qk*I_x[j] - q_x[j]*Ik - q*Ik_xj;
+        }
+    }
+
+}
+
+// driver function for lnphi
+auto driver_lnphi(CubicEOSProps& props, std::vector<real> &Tc, 
+  std::vector<real> &Pc, std::vector<real> &omega, real T, real P, 
+  std::vector<real> &z, CubicEOSModel &EoSModel, 
+  std::vector<std::vector<real>> &kij) -> std::vector<real>
+{
+  compute(props,Tc,Pc,omega,T,P,z,EoSModel,kij);
+  return props.ln_phi;
+}  

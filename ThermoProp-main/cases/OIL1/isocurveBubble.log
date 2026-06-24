@@ -1,0 +1,10 @@
+
+Bubble Line Calculations
+Phase stability calculation to find initial guesses Temperature and Vapor Molar Fraction
+
+Starting Bubble Line (beta = 0) calculations
+
+Iteration: 0
+Index of specified variable before Newton's method: 42
+Temperature before Newton's method: 1.50000e+02 K
+Pressure before Newton's method: 4.04000e+06 Pa

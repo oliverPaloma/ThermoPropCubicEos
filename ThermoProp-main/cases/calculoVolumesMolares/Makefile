@@ -1,0 +1,42 @@
+ROOT_DIR:=$(dir $(abspath $(firstword $(MAKEFILE_LIST))))
+AutodiffPath	= home/fellipe/miniconda3/include
+EigenPath	= home/fellipe/miniconda3/include/eigen3
+C	= gcc
+CC	= g++ #-Wall -pedantic
+FC	= gfortran
+FCOPT	= -O2
+#FCOPT = -g -O0 
+CCOPT	= -std=c++2a $(FCOPT) -DAUTODIFF_EIGEN_FOUND -I/$(AutodiffPath) -I/$(EigenPath)
+#ThermoProjPath	= /home/fellipe/Dropbox/Pessoais/Projetos_Pesquisa/Alunos/modelagem_termodinamica_reservatorio_petroleo/ThermoPropCubicEos
+ThermoProjPath	= $(ROOT_DIR)../..
+ExecName = main
+CPPFILES	= $(ExecName).cpp $(ThermoProjPath)/eos/eos.cpp \
+			$(ThermoProjPath)/database/reading.cpp
+HFILES	= $(ThermoProjPath)/includes.hpp $(ThermoProjPath)/eos/eos.hpp $(ThermoProjPath)/metodosMatematicos/metodosMatematicos.hpp \
+			$(ThermoProjPath)/database/reading.hpp $(ThermoProjPath)/ThermoPropCubicEos.hpp
+FFILES	= 
+FORFILES	= 
+CFILES		= 
+OBJS	= $(CPPFILES:.cpp=.o) $(FFILES:.f=.o) $(FORFILES:.for=.o) $(CFILES:.c=.o)
+EXE	= $(ExecName)
+
+$(EXE)	: $(OBJS)
+	  @$(CC) -o $(EXE) $(OBJS) -lgfortran  
+
+clean	:
+	  rm *.o $(EXE)  $(ThermoProjPath)/eos/*.o $(ThermoProjPath)/database/*.o
+	  
+%.o:	%.cpp 
+	$(CC) -c $(CCOPT) -o $@ $<
+
+%.o:	%.cpp %.hpp
+	$(CC) -c $(CCOPT) -o $@ $<
+
+%.o:	%.for 
+	$(FC) -c $(FCOPT) -o $@ $<
+
+%.o:	%.f 
+	$(FC) -c $(FCOPT) -o $@ $<
+
+%.o:	%.c 
+	$(C) -c $(FCOPT) -o $@ $<

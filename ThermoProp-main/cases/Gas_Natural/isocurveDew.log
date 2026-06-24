@@ -1,0 +1,766 @@
+
+Dew Line Calculations
+Phase stability calculation to find initial guesses Temperature and Liquid Molar Fraction
+
+Starting Dew Line (beta = 1) calculations
+
+Iteration: 0
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.03000e+02 K
+Pressure before Newton's method: 1.01325e+05 Pa
+Interpolation Scheme: Linear
+Mixed error in Newton's method (should be < 1): 2.67432e-06
+Nº of Newton iterations: 4
+Delta of specified variable for the next iteration: 1.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+4.21412e+00	1.22338e+00	-4.20825e+00	5.35341e+00	1.15261e+01
+Sensitivity vector: 
+dXdS[0] = -7.62457e-01
+dXdS[1] = -4.75535e-01
+dXdS[2] = 1.73268e-02
+dXdS[3] = 6.27034e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 1
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.12656e+02 K
+Pressure before Newton's method: 1.11981e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.57228e-03
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+4.13783e+00	1.17581e+00	-4.20645e+00	5.35969e+00	1.16261e+01
+Sensitivity vector: 
+dXdS[0] = -7.63378e-01
+dXdS[1] = -4.75798e-01
+dXdS[2] = 1.85552e-02
+dXdS[3] = 6.30495e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 2
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.15373e+02 K
+Pressure before Newton's method: 1.36774e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.19636e-06
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.98496e+00	1.08060e+00	-4.20248e+00	5.37237e+00	1.18261e+01
+Sensitivity vector: 
+dXdS[0] = -7.65340e-01
+dXdS[1] = -4.76324e-01
+dXdS[2] = 2.13073e-02
+dXdS[3] = 6.37114e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 3
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.18149e+02 K
+Pressure before Newton's method: 1.67057e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 5.36149e-06
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.83168e+00	9.85282e-01	-4.19790e+00	5.38518e+00	1.20261e+01
+Sensitivity vector: 
+dXdS[0] = -7.67480e-01
+dXdS[1] = -4.76844e-01
+dXdS[2] = 2.45126e-02
+dXdS[3] = 6.43206e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 4
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.20985e+02 K
+Pressure before Newton's method: 2.04043e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.34238e-06
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.67795e+00	8.89862e-01	-4.19263e+00	5.39809e+00	1.22261e+01
+Sensitivity vector: 
+dXdS[0] = -7.69820e-01
+dXdS[1] = -4.77351e-01
+dXdS[2] = 2.82562e-02
+dXdS[3] = 6.48591e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 5
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.23881e+02 K
+Pressure before Newton's method: 2.49219e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.32231e-05
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.52374e+00	7.94343e-01	-4.18656e+00	5.41111e+00	1.24261e+01
+Sensitivity vector: 
+dXdS[0] = -7.72388e-01
+dXdS[1] = -4.77833e-01
+dXdS[2] = 3.26419e-02
+dXdS[3] = 6.53043e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 6
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.26832e+02 K
+Pressure before Newton's method: 3.04397e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.15218e-05
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.36898e+00	6.98731e-01	-4.17953e+00	5.42421e+00	1.26261e+01
+Sensitivity vector: 
+dXdS[0] = -7.75217e-01
+dXdS[1] = -4.78277e-01
+dXdS[2] = 3.77972e-02
+dXdS[3] = 6.56284e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 7
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.29833e+02 K
+Pressure before Newton's method: 3.71791e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 3.61822e-05
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.21363e+00	6.03036e-01	-4.17138e+00	5.43735e+00	1.28261e+01
+Sensitivity vector: 
+dXdS[0] = -7.78344e-01
+dXdS[1] = -4.78664e-01
+dXdS[2] = 4.38808e-02
+dXdS[3] = 6.57960e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 8
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.32878e+02 K
+Pressure before Newton's method: 4.54107e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 6.32667e-05
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.05762e+00	5.07271e-01	-4.16190e+00	5.45051e+00	1.30261e+01
+Sensitivity vector: 
+dXdS[0] = -7.81816e-01
+dXdS[1] = -4.78967e-01
+dXdS[2] = 5.10911e-02
+dXdS[3] = 6.57629e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 9
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.35956e+02 K
+Pressure before Newton's method: 5.54648e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.16767e-04
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.90088e+00	4.11457e-01	-4.15085e+00	5.46364e+00	1.32261e+01
+Sensitivity vector: 
+dXdS[0] = -7.85692e-01
+dXdS[1] = -4.79153e-01
+dXdS[2] = 5.96796e-02
+dXdS[3] = 6.54729e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 10
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.39053e+02 K
+Pressure before Newton's method: 6.77448e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.32344e-04
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.74331e+00	3.15621e-01	-4.13791e+00	5.47668e+00	1.34261e+01
+Sensitivity vector: 
+dXdS[0] = -7.90046e-01
+dXdS[1] = -4.79175e-01
+dXdS[2] = 6.99689e-02
+dXdS[3] = 6.48540e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 11
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.42150e+02 K
+Pressure before Newton's method: 8.27437e+05 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 5.20760e-04
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.58482e+00	2.19802e-01	-4.12272e+00	5.48956e+00	1.36261e+01
+Sensitivity vector: 
+dXdS[0] = -7.94975e-01
+dXdS[1] = -4.78972e-01
+dXdS[2] = 8.23798e-02
+dXdS[3] = 6.38133e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 12
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.45225e+02 K
+Pressure before Newton's method: 1.01063e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.46546e-03
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.42527e+00	1.24053e-01	-4.10478e+00	5.50217e+00	1.38261e+01
+Sensitivity vector: 
+dXdS[0] = -8.00609e-01
+dXdS[1] = -4.78460e-01
+dXdS[2] = 9.74703e-02
+dXdS[3] = 6.22288e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 13
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.48242e+02 K
+Pressure before Newton's method: 1.23439e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.83590e-03
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.26452e+00	2.84457e-02	-4.08350e+00	5.51440e+00	1.40261e+01
+Sensitivity vector: 
+dXdS[0] = -8.07131e-01
+dXdS[1] = -4.77527e-01
+dXdS[2] = 1.15998e-01
+dXdS[3] = 5.99379e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 14
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.51160e+02 K
+Pressure before Newton's method: 1.50769e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.11552e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.10234e+00	-6.69200e-02	-4.05809e+00	5.52608e+00	1.42261e+01
+Sensitivity vector: 
+dXdS[0] = -8.14807e-01
+dXdS[1] = -4.76018e-01
+dXdS[2] = 1.39017e-01
+dXdS[3] = 5.67186e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 15
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.53919e+02 K
+Pressure before Newton's method: 1.84150e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.77936e-03
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.93849e+00	-1.61909e-01	-4.02750e+00	5.53701e+00	1.44261e+01
+Sensitivity vector: 
+dXdS[0] = -8.24044e-01
+dXdS[1] = -4.73714e-01
+dXdS[2] = 1.68051e-01
+dXdS[3] = 5.22586e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 16
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.56439e+02 K
+Pressure before Newton's method: 2.24921e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.33820e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.77258e+00	-2.56332e-01	-3.99031e+00	5.54687e+00	1.46261e+01
+Sensitivity vector: 
+dXdS[0] = -8.35490e-01
+dXdS[1] = -4.70302e-01
+dXdS[2] = 2.05390e-01
+dXdS[3] = 4.61025e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 17
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.58608e+02 K
+Pressure before Newton's method: 2.74719e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.92705e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.60407e+00	-3.49925e-01	-3.94455e+00	5.55529e+00	1.48261e+01
+Sensitivity vector: 
+dXdS[0] = -8.50252e-01
+dXdS[1] = -4.65313e-01
+dXdS[2] = 2.54680e-01
+dXdS[3] = 3.75500e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 18
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.60266e+02 K
+Pressure before Newton's method: 3.35542e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.70329e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.43213e+00	-4.42303e-01	-3.88724e+00	5.56166e+00	1.50261e+01
+Sensitivity vector: 
+dXdS[0] = -8.70364e-01
+dXdS[1] = -4.57997e-01
+dXdS[2] = 3.22187e-01
+dXdS[3] = 2.54478e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 19
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.61171e+02 K
+Pressure before Newton's method: 4.09832e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 3.55434e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.25531e+00	-5.32883e-01	-3.81369e+00	5.56509e+00	1.52261e+01
+Sensitivity vector: 
+dXdS[0] = -8.99961e-01
+dXdS[1] = -4.47030e-01
+dXdS[2] = 4.19889e-01
+dXdS[3] = 7.69416e-03
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 20
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.60931e+02 K
+Pressure before Newton's method: 5.00570e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.67691e-06
+Nº of Newton iterations: 3
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.07089e+00	-6.20696e-01	-3.71556e+00	5.56408e+00	1.54261e+01
+Sensitivity vector: 
+dXdS[0] = -9.48856e-01
+dXdS[1] = -4.29652e-01
+dXdS[2] = 5.74734e-01
+dXdS[3] = -2.01791e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 21
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.58812e+02 K
+Pressure before Newton's method: 6.11398e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.24946e-04
+Nº of Newton iterations: 3
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 4
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+8.72622e-01	-7.03842e-01	-3.57508e+00	5.55558e+00	1.56261e+01
+Sensitivity vector: 
+dXdS[0] = -1.04740e+00
+dXdS[1] = -3.98141e-01
+dXdS[2] = 8.66796e-01
+dXdS[3] = -7.05968e-02
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 22
+Index of specified variable before Newton's method: 4
+Temperature before Newton's method: 2.53030e+02 K
+Pressure before Newton's method: 7.46763e+06 Pa
+Interpolation Scheme: Linear
+Mixed error in Newton's method (should be < 1): 4.43676e-01
+Nº of Newton iterations: 3
+Delta of specified variable for the next iteration: 1.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+6.39024e-01	-7.76674e-01	-3.33493e+00	5.53077e+00	1.58261e+01
+Sensitivity vector: 
+dXdS[0] = -1.37215e+00
+dXdS[1] = -3.09486e-01
+dXdS[2] = 1.75121e+00
+dXdS[3] = -2.08409e-01
+dXdS[4] = 1.00000e+00
+
+
+Iteration: 23
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.47133e+02 K
+Pressure before Newton's method: 8.25301e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.30225e-04
+Nº of Newton iterations: 4
+Delta of specified variable for the next iteration: 5.00000e-02
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+5.66553e-01	-7.90348e-01	-3.23493e+00	5.51850e+00	1.58749e+01
+Sensitivity vector: 
+dXdS[0] = -6.70163e-01
+dXdS[1] = -9.94934e-02
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.25736e-01
+dXdS[4] = 4.10124e-01
+
+
+Iteration: 24
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.47713e+02 K
+Pressure before Newton's method: 8.00142e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.83976e-07
+Nº of Newton iterations: 3
+Delta of specified variable for the next iteration: 5.00000e-02
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+5.34265e-01	-7.94483e-01	-3.18493e+00	5.51216e+00	1.58936e+01
+Sensitivity vector: 
+dXdS[0] = -6.22205e-01
+dXdS[1] = -6.64805e-02
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.27743e-01
+dXdS[4] = 3.41341e-01
+
+
+Iteration: 25
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.46099e+02 K
+Pressure before Newton's method: 8.11409e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.70465e-04
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 1.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+5.04254e-01	-7.97047e-01	-3.13493e+00	5.50573e+00	1.59091e+01
+Sensitivity vector: 
+dXdS[0] = -5.78993e-01
+dXdS[1] = -3.65294e-02
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.28979e-01
+dXdS[4] = 2.79091e-01
+
+
+Iteration: 26
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.42936e+02 K
+Pressure before Newton's method: 8.29784e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 9.75110e-03
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+4.50204e-01	-7.98010e-01	-3.03493e+00	5.49279e+00	1.59315e+01
+Sensitivity vector: 
+dXdS[0] = -5.04390e-01
+dXdS[1] = 1.56957e-02
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.29456e-01
+dXdS[4] = 1.71444e-01
+
+
+Iteration: 27
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.36839e+02 K
+Pressure before Newton's method: 8.44510e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.16013e-07
+Nº of Newton iterations: 3
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.61384e-01	-7.86308e-01	-2.83493e+00	5.46731e+00	1.59486e+01
+Sensitivity vector: 
+dXdS[0] = -3.90420e-01
+dXdS[1] = 9.69269e-02
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.24188e-01
+dXdS[4] = 1.02773e-02
+
+
+Iteration: 28
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.31271e+02 K
+Pressure before Newton's method: 8.36736e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.51157e-07
+Nº of Newton iterations: 3
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.91924e-01	-7.60674e-01	-2.63493e+00	5.44349e+00	1.59393e+01
+Sensitivity vector: 
+dXdS[0] = -3.08411e-01
+dXdS[1] = 1.56466e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.13235e-01
+dXdS[4] = -9.49537e-02
+
+
+Iteration: 29
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.26400e+02 K
+Pressure before Newton's method: 8.15245e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 8.68681e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.36629e-01	-7.24713e-01	-2.43493e+00	5.42223e+00	1.59135e+01
+Sensitivity vector: 
+dXdS[0] = -2.47398e-01
+dXdS[1] = 2.01043e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -9.90777e-02
+dXdS[4] = -1.56757e-01
+
+
+Iteration: 30
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.22295e+02 K
+Pressure before Newton's method: 7.87448e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 4.01205e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.92005e-01	-6.80982e-01	-2.23493e+00	5.40394e+00	1.58788e+01
+Sensitivity vector: 
+dXdS[0] = -2.00846e-01
+dXdS[1] = 2.34705e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -8.37020e-02
+dXdS[4] = -1.84670e-01
+
+
+Iteration: 31
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.18934e+02 K
+Pressure before Newton's method: 7.58406e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.34605e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.55604e-01	-6.31380e-01	-2.03493e+00	5.38872e+00	1.58413e+01
+Sensitivity vector: 
+dXdS[0] = -1.64631e-01
+dXdS[1] = 2.60118e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -6.86537e-02
+dXdS[4] = -1.87658e-01
+
+
+Iteration: 32
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.16246e+02 K
+Pressure before Newton's method: 7.31280e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.97923e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.25647e-01	-5.77357e-01	-1.83493e+00	5.37639e+00	1.58048e+01
+Sensitivity vector: 
+dXdS[0] = -1.36029e-01
+dXdS[1] = 2.79189e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -5.50181e-02
+dXdS[4] = -1.74489e-01
+
+
+Iteration: 33
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.14133e+02 K
+Pressure before Newton's method: 7.07631e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.92643e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.00811e-01	-5.20029e-01	-1.63493e+00	5.36658e+00	1.57720e+01
+Sensitivity vector: 
+dXdS[0] = -1.13172e-01
+dXdS[1] = 2.93375e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -4.34255e-02
+dXdS[4] = -1.53073e-01
+
+
+Iteration: 34
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.12484e+02 K
+Pressure before Newton's method: 6.87867e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.66301e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+8.00845e-02	-4.60255e-01	-1.43493e+00	5.35886e+00	1.57437e+01
+Sensitivity vector: 
+dXdS[0] = -9.47376e-02
+dXdS[1] = 3.03825e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -3.41098e-02
+dXdS[4] = -1.29617e-01
+
+
+Iteration: 35
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.11195e+02 K
+Pressure before Newton's method: 6.71691e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.21783e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+6.26857e-02	-3.98687e-01	-1.23493e+00	5.35279e+00	1.57200e+01
+Sensitivity vector: 
+dXdS[0] = -7.97603e-02
+dXdS[1] = 3.11455e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -2.70070e-02
+dXdS[4] = -1.08191e-01
+
+
+Iteration: 36
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.10171e+02 K
+Pressure before Newton's method: 6.58462e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 7.82350e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+4.79984e-02	-3.35812e-01	-1.03493e+00	5.34793e+00	1.57002e+01
+Sensitivity vector: 
+dXdS[0] = -6.75181e-02
+dXdS[1] = 3.16992e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -2.18668e-02
+dXdS[4] = -9.08561e-02
+
+
+Iteration: 37
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.09332e+02 K
+Pressure before Newton's method: 6.47447e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 3.98496e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+3.55332e-02	-2.71992e-01	-8.34935e-01	5.34393e+00	1.56834e+01
+Sensitivity vector: 
+dXdS[0] = -5.74595e-02
+dXdS[1] = 3.20996e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.83517e-02
+dXdS[4] = -7.81697e-02
+
+
+Iteration: 38
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.08616e+02 K
+Pressure before Newton's method: 6.37965e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 2.24829e-02
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+2.48978e-02	-2.07488e-01	-6.34935e-01	5.34051e+00	1.56686e+01
+Sensitivity vector: 
+dXdS[0] = -4.91569e-02
+dXdS[1] = 3.23895e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.61101e-02
+dXdS[4] = -6.97833e-02
+
+
+Iteration: 39
+Index of specified variable before Newton's method: 2
+Temperature before Newton's method: 2.07974e+02 K
+Pressure before Newton's method: 6.29454e+06 Pa
+Interpolation Scheme: Polynomial (Cubic)
+Mixed error in Newton's method (should be < 1): 1.93987e-01
+Nº of Newton iterations: 2
+Delta of specified variable for the next iteration: 2.00000e-01
+Next Iteration variable updated index: 2
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+1.57760e-02	-1.42487e-01	-4.34935e-01	5.33743e+00	1.56552e+01
+Sensitivity vector: 
+dXdS[0] = -4.22737e-02
+dXdS[1] = 3.26006e-01
+dXdS[2] = 1.00000e+00
+dXdS[3] = -1.48210e-02
+dXdS[4] = -6.49388e-02
+
+

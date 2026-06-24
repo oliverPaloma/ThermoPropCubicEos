@@ -1,0 +1,25 @@
+
+Bubble Line Calculations
+Phase stability calculation to find initial guesses Temperature and Vapor Molar Fraction
+
+Starting Bubble Line (beta = 0) calculations
+
+Iteration: 0
+Index of specified variable before Newton's method: 3
+Temperature before Newton's method: 1.80700e+02 K
+Pressure before Newton's method: 1.01325e+05 Pa
+Interpolation Scheme: Linear
+Mixed error in Newton's method (should be < 1): 3.53268e-04
+Nº of Newton iterations: 4
+Delta of specified variable for the next iteration: 5.19684e-02
+Next Iteration variable updated index: 3
+lnK[0]		lnK[1]		lnK[2]		lnT(K)		lnP(Pa)		
+-6.25898e+00	-2.50497e+00	4.23021e+00	5.19684e+00	8.81212e+00
+Sensitivity vector: 
+dXdS[0] = 1.41360e+01
+dXdS[1] = 8.88261e+00
+dXdS[2] = -5.81782e-02
+dXdS[3] = 1.00000e+00
+dXdS[4] = 1.89298e+01
+
+

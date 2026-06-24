@@ -1,0 +1,1923 @@
+
+
+
+// ============================================================
+// Driver: Oil Recharacterization for Cubic Equations of State
+// ============================================================
+//
+// Reads a 4-column input file (name, z, MM, flag), builds:
+//   (a) Full original mixture (all SCN characterized individually)
+//   (b) Lumped mixture (Whitson / Pedersen / Danesh)
+//
+// Then evaluates both at multiple (T, P) conditions via PT flash
+// and reports relative errors for:
+//   - Bubble point pressure
+//   - Dew point pressure
+//   - Flash vapor fraction (beta)
+//   - Phase compositions
+//   - Phase densities
+//
+// Dependencies: NONE — completely standalone.
+// ============================================================
+
+#include "cubic_eos_types.hpp"
+#include "cubic_eos_correlations.hpp"
+#include "cubic_eos_lumping.hpp"
+#include "cubic_eos_core.hpp"
+
+#include <ctime>
+#include <chrono>
+#include <numeric>
+#include <cmath>
+#include <cstdio>
+#include <algorithm>
+
+// ============================================================
+// Timestamp string YYYY-MM-DD_HH-MM-SS
+// ============================================================
+static auto timestampString() -> String
+{
+  auto now = std::time(nullptr);
+  auto tm = *std::localtime(&now);
+  char buf[32];
+  std::strftime(buf, sizeof(buf), "%Y-%m-%d_%H-%M-%S", &tm);
+  return String(buf);
+}
+
+// ============================================================
+// Read input file (4 columns: name, z, MM, flag)
+// Light components get properties from built-in table.
+// ============================================================
+static auto readInputFile(const String &filename, Vec<Component> &comps) -> bool
+{
+  static const struct KnownComponent {const char *name; double Tc, Pc, omega, SG, Tb;}
+    known[] = {
+    {"N2",    126.20, 33.90e5,  0.039, 0.797,  77.36},
+    {"O2",    154.58, 50.43e5,  0.021, 1.105,  90.18},
+    {"CO2",   304.13, 73.77e5,  0.239, 0.859, 194.67},
+    {"H2S",   373.53, 90.30e5,  0.094, 0.907, 212.8},
+    {"C1",    190.56, 45.99e5,  0.011, 0.300, 111.65},
+    {"C2",    305.32, 48.72e5,  0.099, 0.356, 184.5},
+    {"C3",    369.83, 42.48e5,  0.152, 0.507, 231.1},
+    {"iC4",   407.81, 36.40e5,  0.177, 0.563, 261.4},
+    {"nC4",   425.12, 37.96e5,  0.200, 0.584, 272.7},
+    {"iC5",   460.37, 33.81e5,  0.227, 0.625, 301.0},
+    {"nC5",   469.70, 33.70e5,  0.251, 0.631, 309.2},
+    {"C6",    507.40, 30.25e5,  0.296, 0.664, 341.9},
+    {"Benzene",   562.05, 48.95e5, 0.216, 0.885, 353.2},
+    {"Toluene",   591.79, 41.06e5, 0.264, 0.872, 383.8},
+    {"Mcyclo-C5", 542.0,  33.0e5,  0.237, 0.750, 345.0},
+    {"Cyclo-C6",  553.0,  38.0e5,  0.210, 0.779, 354.0},
+    {"Mcyclo-C6", 572.0,  34.0e5,  0.230, 0.770, 374.0},
+    {"C2-Benzene",620.0,  37.0e5,  0.300, 0.870, 410.0},
+    {"m&p-Xylene",617.0, 35.5e5,  0.310, 0.865, 412.0},
+    {"o-Xylene",  630.0, 37.3e5,  0.310, 0.880, 417.5},
+  };
+  auto nKnown = static_cast<int>(sizeof(known) / sizeof(known[0]));
+  //ncomp para os comnentes na tabela
+
+  auto lookupKnown = [&](const String &name) -> Component {
+    Component c{};
+    c.name = name;
+    for (auto k = 0; k < nKnown; k++) {
+      if (name == known[k].name) {
+        c.Tc = known[k].Tc; c.Pc = known[k].Pc;
+        c.omega = known[k].omega; c.SG = known[k].SG; c.Tb = known[k].Tb;
+        break;
+      }
+    }
+    return c;
+  };
+
+  std::ifstream infile(filename);
+  if (!infile.is_open()) {
+    std::cerr << "Error: cannot open input file '" << filename << "'\n";
+    return false;
+  }
+
+  infile.ignore(500, '\n');  // skip header (pular cabeçalho)
+ 
+  // Reserve estimated capacity to avoid reallocations
+  comps.reserve(64); //Reservar capacidade estimada para evitar realocações
+
+  String name;
+  double z_val, mm_val;
+  int flag_val;
+
+  while (infile >> name >> z_val >> mm_val >> flag_val) {
+    // Validate input values
+    if (z_val < 0.0) {
+      std::cerr << "Warning: negative z for '" << name << "', skipping.\n";
+      continue;
+    }
+    if (mm_val <= 0.0) {
+      std::cerr << "Warning: non-positive MM for '" << name << "', skipping.\n";
+      continue;
+    }
+    if (flag_val != 0 && flag_val != 1) {
+      std::cerr << "Warning: invalid flag for '" << name << "', skipping.\n";
+      continue;
+    }
+
+    Component c = lookupKnown(name);
+    c.z = z_val;
+    c.MM = mm_val;
+    c.flag = flag_val;
+
+    // Validate known component properties
+    if (flag_val == 0 && c.Tc > 0.0) {
+      if (c.Pc <= 0.0 || c.Tc <= 0.0) {
+        std::cerr << "Warning: invalid Pc/Tc for known component '" << name << "', skipping.\n";
+        continue;
+      }
+    }
+
+    // Unknown flag=0 component: characterize it
+    if (flag_val == 0 && c.Tc < 1.0) {
+      c.Tb = 0.0; c.SG = 0.0;
+      CharacterizationOptions opts;
+      opts.method = CorrMethod::WhitsonRiaziDaubert;
+      opts.watson_k_policy = WatsonKPolicy::AutoSmoothFromMM;
+      auto st = characterizeComponent(c, opts);
+      if (st != CharacterizationStatus::Ok) {
+        std::cerr << "Warning: characterization failed for '" << name
+                  << "': " << c.characterization_message << "\n";
+      }
+    }
+
+    comps.push_back(c);
+  }
+
+  infile.close();
+  return !comps.empty();
+}
+
+// ============================================================
+// Build the full original mixture: all components characterized
+// individually (no lumping). This is the reference.
+// ============================================================
+static auto buildOriginalMixture(const Vec<Component> &all_comps,
+                                 CorrMethod corrMethod,
+                                 Mixture &mix) -> void
+{
+  mix.comps.reserve(all_comps.size());
+
+  // Count lights and heavies in the original mixture
+  int n_light = 0, n_heavy = 0;
+  for (const auto &c : all_comps) {
+    if (c.flag == 0) n_light++;
+    else n_heavy++;
+  }
+  mix.n_light = n_light;
+  mix.n_pseudo = n_heavy;  // Each heavy is its own "pseudo" in the original
+
+  for (const auto &c : all_comps) {
+    Component cc = c;
+    if (c.flag == 1) {
+      // SCN fraction — characterize individually
+      CharacterizationOptions opts;
+      opts.method = corrMethod;
+      opts.watson_k_policy = WatsonKPolicy::AutoSmoothFromMM;
+      auto st = characterizeComponent(cc, opts);
+      if (st != CharacterizationStatus::Ok) {
+        std::cerr << "Warning: characterization failed for '" << c.name
+                  << "': " << cc.characterization_message << "\n";
+      }
+    }
+    mix.comps.push_back(cc);
+  }
+
+  auto n = static_cast<int>(mix.comps.size());
+  mix.kij.assign(n, Vec<double>(n, 0.0));
+}
+
+// ============================================================
+// Build the lumped mixture: lights kept, heavies lumped.
+// ============================================================
+static auto buildLumpedMixture(const Vec<Component> &lights,
+                               const Vec<LumpedPseudo> &pseudos,
+                               CorrMethod corrMethod,
+                               Mixture &mix) -> void{
+  mix.n_light = static_cast<int>(lights.size());
+  mix.n_pseudo = static_cast<int>(pseudos.size());
+  mix.comps.reserve(lights.size() + pseudos.size());
+
+  for (const auto &c : lights) mix.comps.push_back(c);
+
+  for (int i = 0; i < mix.n_pseudo; i++) {
+    Component pc;
+    pc.name = "Pseudo" + std::to_string(i + 1);
+    pc.z = pseudos[i].z;
+    pc.MM = pseudos[i].MM;
+    pc.Tb = pseudos[i].Tb;
+    pc.SG = pseudos[i].SG;
+    pc.flag = 1;
+    // Pseudocomponents use the same correlation method as the original
+    // mixture. InternalAlkaneMM is a known limitation for pseudos because
+    // they are mixtures of real SCN fractions, not pure alkanes.
+    // See documentation.tex "Limitações Conhecidas e Recomendações" section.
+    CharacterizationOptions opts;
+    opts.method = corrMethod;
+    opts.watson_k_policy = WatsonKPolicy::AutoSmoothFromMM;
+    auto st = characterizeComponent(pc, opts);
+    if (st != CharacterizationStatus::Ok) {
+      std::cerr << "Warning: characterization failed for '" << pc.name
+                << "': " << pc.characterization_message << "\n";
+    }
+    // Warn when using InternalAlkaneMM for pseudocomponents
+    if (corrMethod == CorrMethod::InternalAlkaneMM && st == CharacterizationStatus::Ok) {
+      pc.characterization_message += " [WARNING: InternalAlkaneMM for pseudocomponents — see documentation]";
+    }
+    mix.comps.push_back(pc);
+  }
+
+  auto n = static_cast<int>(mix.comps.size());
+  mix.kij.assign(n, Vec<double>(n, 0.0));
+}
+
+// ============================================================
+// Normalize molar fractions
+// ============================================================
+static auto normalizeZ(Vec<double> &z) -> void
+{
+  auto sum = 0.0;
+  for (auto zi : z) sum += zi;
+  if (sum > 1e-30) for (auto &zi : z) zi /= sum;
+}
+
+// ============================================================
+// Relative error with safe denominator
+// ============================================================
+static auto relErr(double val, double ref) -> double
+{
+  if (std::abs(ref) < 1e-12) return std::abs(val - ref);
+  return std::abs(val - ref) / std::abs(ref) * 100.0;  // percentage
+}
+
+// ============================================================
+// Print component table
+// ============================================================
+static auto printComponentTable(std::ofstream &out, const Mixture &mix,
+                                const String &label) -> void
+{
+  out << "\n";
+  out << "============================================================"
+         "===================\n";
+  out << "  " << label << " — Component Properties\n";
+  out << "============================================================"
+         "===================\n";
+  out << std::left << std::setw(14) << "Component"
+      << std::right << std::setw(12) << "z"
+      << std::setw(12) << "MM"
+      << std::setw(12) << "Tb"
+      << std::setw(10) << "SG"
+      << std::setw(12) << "Tc"
+      << std::setw(14) << "Pc(MPa)"
+      << std::setw(10) << "omega"
+      << std::setw(28) << "provenance"
+      << std::setw(6) << "ok" << "\n";
+  out << std::string(120, '-') << "\n";
+
+  for (const auto &c : mix.comps) {
+    out << std::left << std::setw(14) << c.name
+        << std::right << std::scientific << std::setprecision(5)
+        << std::setw(12) << c.z
+        << std::setw(12) << c.MM
+        << std::fixed << std::setprecision(1)
+        << std::setw(12) << c.Tb
+        << std::setw(10) << c.SG
+        << std::setw(12) << c.Tc
+        << std::setw(14) << c.Pc / 1e6
+        << std::scientific << std::setprecision(4)
+        << std::setw(10) << c.omega
+        << std::left << std::setw(28) << provenanceString(c.provenance)
+        << std::setw(6) << (c.characterization_ok ? "yes" : "no") << "\n";
+  }
+  out << std::string(120, '-') << "\n";
+  out << "  n_total = " << mix.comps.size()
+      << "  (lights: " << mix.n_light
+      << ", pseudos: " << mix.n_pseudo << ")\n";
+  out << "============================================================"
+         "===================\n";
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+int main()
+{
+  auto t_start = std::chrono::high_resolution_clock::now();
+
+  // ============================================================
+  // User-configurable parameters
+  // ============================================================
+  auto inputFileName = "inputData.dat";
+
+  LumpMethod lumpMethod = LumpMethod::Pedersen;
+  CorrMethod corrMethod = CorrMethod::WhitsonRiaziDaubert;
+  int npseudos = 4;
+  int nC_first = 7;
+  int nC_last = 20;
+  CubicEOS eos = CubicEOS::PengRobinson;
+
+  // Evaluation temperatures (K) — phase behavior at multiple T
+  Vec<double> eval_temps = {300.0, 350.0, 400.0, 450.0, 500.0};
+
+  // ============================================================
+  // Create output files
+  // ============================================================
+  auto ts = timestampString();
+  auto outFileName = "recharacterization_" + ts + ".out";
+  auto logFileName = "recharacterization_" + ts + ".log";
+
+  std::ofstream out_file(outFileName);
+  std::ofstream log_file(logFileName);
+
+  if (!out_file.is_open() || !log_file.is_open()) {
+    std::cerr << "Error opening output/log files.\n";
+    return 1;
+  }
+  out_file << std::scientific << std::setprecision(10);
+  log_file << std::scientific << std::setprecision(16);
+
+  // ============================================================
+  // Step 1: Read input
+  // ============================================================
+  Vec<Component> all_comps;
+  if (!readInputFile(inputFileName, all_comps)) return 1;
+
+  log_file << "Input file: " << inputFileName << "\n";
+  log_file << "Components read: " << all_comps.size() << "\n";
+
+  Vec<Component> lights, heavies;
+  auto z_total = 0.0;
+  for (const auto &c : all_comps) {
+    z_total += c.z;
+    if (c.flag == 0) lights.push_back(c);
+    else heavies.push_back(c);
+  }
+  log_file << "Lights (flag=0): " << lights.size() << "\n";
+  log_file << "Heavies (flag=1): " << heavies.size() << "\n";
+  log_file << "Total z sum: " << z_total << "\n";
+
+  // Validate total z sum and heavy fraction
+  if (z_total <= 1e-30) {
+    std::cerr << "Error: total z sum is effectively zero.\n";
+    return 1;
+  }
+  if (heavies.empty()) {
+    std::cerr << "Error: no heavy fractions (flag=1) found in input.\n";
+    return 1;
+  }
+
+  // Sort heavies by MM if not already sorted
+  if (!std::is_sorted(heavies.begin(), heavies.end(),
+                       [](const Component &a, const Component &b) {
+                         return a.MM < b.MM;
+                       })) {
+    std::sort(heavies.begin(), heavies.end(),
+              [](const Component &a, const Component &b) {
+                return a.MM < b.MM;
+              });
+    log_file << "Heavies sorted by MM.\n";
+  }
+
+  // ============================================================
+  // Step 1b: Characterize heavies before lumping
+  // Ensure all heavy fractions have valid Tb, SG, Tc, Pc, omega
+  // before the lumping algorithm uses them for pseudo-property
+  // averaging. This guarantees consistency between the documented
+  // method (which assumes Tb and SG are known) and the actual code.
+  // ============================================================
+  log_file << "\n--- Characterizing heavies before lumping ---\n";
+  for (auto &h : heavies) {
+    // Check if already characterized (Tc > 0 means it has critical properties)
+    if (h.Tc > 0.0 && h.Pc > 0.0) {
+      log_file << "  " << h.name << ": already characterized (Tc=" << h.Tc
+               << " K, Pc=" << h.Pc << " Pa)\n";
+      continue;
+    }
+
+    // Validate MM before characterization
+    if (h.MM <= 0.0) {
+      std::cerr << "Error: heavy component '" << h.name
+                << "' has invalid MM=" << h.MM << ".\n";
+      return 1;
+    }
+
+    CharacterizationOptions opts;
+    opts.method = corrMethod;
+    opts.watson_k_policy = WatsonKPolicy::AutoSmoothFromMM;
+    auto st = characterizeComponent(h, opts);
+    if (st != CharacterizationStatus::Ok) {
+      std::cerr << "Error: characterization failed for heavy component '"
+                << h.name << "': " << h.characterization_message << "\n";
+      return 1;
+    }
+
+    // Post-characterization validation
+    if (!std::isfinite(h.Tb) || h.Tb <= 0.0) {
+      std::cerr << "Error: heavy component '" << h.name
+                << "' has invalid Tb=" << h.Tb << " after characterization.\n";
+      return 1;
+    }
+    if (!std::isfinite(h.SG) || h.SG <= 0.0 || h.SG > 2.0) {
+      std::cerr << "Error: heavy component '" << h.name
+                << "' has invalid SG=" << h.SG << " after characterization.\n";
+      return 1;
+    }
+    if (!std::isfinite(h.Tc) || h.Tc <= 0.0 || !std::isfinite(h.Pc) || h.Pc <= 0.0) {
+      std::cerr << "Error: heavy component '" << h.name
+                << "' has invalid Tc/Pc after characterization.\n";
+      return 1;
+    }
+
+    log_file << "  " << h.name << ": characterized (MM=" << h.MM
+             << ", Tb=" << h.Tb << " K, SG=" << h.SG
+             << ", Tc=" << h.Tc << " K, Pc=" << h.Pc << " Pa)\n";
+  }
+
+  // Verify all heavies have valid properties
+  for (const auto &h : heavies) {
+    if (h.Tb <= 0.0 || h.SG <= 0.0 || h.Tc <= 0.0 || h.Pc <= 0.0) {
+      std::cerr << "Error: heavy component '" << h.name
+                << "' still has invalid properties after characterization step.\n";
+      return 1;
+    }
+  }
+  log_file << "All heavies validated: Tb, SG, Tc, Pc are finite and positive.\n";
+
+  // ============================================================
+  // Step 2: Build original mixture (reference — all SCN individual)
+  // ============================================================
+  Mixture orig_mix;
+  buildOriginalMixture(all_comps, corrMethod, orig_mix);
+  log_file << "\nOriginal mixture built: " << orig_mix.comps.size()
+           << " components (all individual)\n";
+
+  // ============================================================
+  // Step 3: Build lumped mixture
+  // ============================================================
+  Vec<LumpedPseudo> pseudos;
+  int np_actual = 0;
+
+  // Validate npseudos against heavy count for Pedersen/Danesh
+  if ((lumpMethod == LumpMethod::Pedersen || lumpMethod == LumpMethod::Danesh)
+      && npseudos > static_cast<int>(heavies.size())) {
+    std::cerr << "Warning: npseudos (" << npseudos
+              << ") > heavy count (" << heavies.size()
+              << "). Reducing npseudos to " << heavies.size() << ".\n";
+    npseudos = static_cast<int>(heavies.size());
+  }
+
+  if (lumpMethod == LumpMethod::Whitson) {
+    np_actual = lumpWhitson(heavies, nC_first, nC_last, pseudos);
+  }
+  else if (lumpMethod == LumpMethod::Pedersen) {
+    lumpPedersen(heavies, npseudos, pseudos);
+    np_actual = npseudos;
+  }
+  else {
+    lumpDanesh(heavies, npseudos, pseudos);
+    np_actual = npseudos;
+  }
+
+  Mixture lump_mix;
+  buildLumpedMixture(lights, pseudos, corrMethod, lump_mix);
+  log_file << "Lumped mixture built: " << lump_mix.comps.size()
+           << " components (" << lump_mix.n_light << " lights + "
+           << lump_mix.n_pseudo << " pseudos)\n";
+
+  // ============================================================
+  // Log: Variable Guide
+  // ============================================================
+  log_file << "\n--- Log Variable Guide ---\n";
+  log_file << "  T         = evaluation temperature (K)\n";
+  log_file << "  Pbub      = bubble point pressure (Pa)\n";
+  log_file << "  Pdew      = dew point pressure (Pa)\n";
+  log_file << "  P_mid     = midpoint pressure for flash (Pa)\n";
+  log_file << "  beta      = vapor fraction from Rachford-Rice\n";
+  log_file << "  converged = flash convergence status\n";
+  log_file << "  iter      = number of flash iterations\n";
+  log_file << "  rho_liq   = liquid molar density (mol/m3)\n";
+  log_file << "  rho_vap   = vapor molar density (mol/m3)\n";
+  log_file << "----------------------------\n";
+
+  // ============================================================
+  // Log: Execution Trace
+  // ============================================================
+  log_file << "\n--- Execution Trace ---\n";
+
+  // ============================================================
+  // Step 4: Print component tables (Results section)
+  // ============================================================
+
+  // --- Case Description ---
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Case Description\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Oil recharacterization with cubic EOS phase behavior evaluation.\n";
+  out_file << "  Lumping method:     " << lumpName(lumpMethod) << "\n";
+  out_file << "  Correlation:        " << corrName(corrMethod) << "\n";
+  out_file << "  Cubic EOS:          " << eosName(eos) << "\n";
+  out_file << "  Input file:         " << inputFileName << "\n";
+  out_file << "  Original comps:     " << orig_mix.comps.size() << "\n";
+  out_file << "  Lumped comps:       " << lump_mix.comps.size()
+           << " (" << lump_mix.n_light << " lights + "
+           << lump_mix.n_pseudo << " pseudos)\n";
+  out_file << "  Eval temperatures:  ";
+  for (size_t i = 0; i < eval_temps.size(); i++) {
+    out_file << std::fixed << std::setprecision(0) << eval_temps[i] << " K";
+    if (i + 1 < eval_temps.size()) out_file << ", ";
+  }
+  out_file << "\n";
+  out_file << "============================================================"
+               "===================\n";
+
+  // --- Variable Guide ---
+  out_file << "\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Variable Guide\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  z          = molar fraction in the feed\n";
+  out_file << "  MM         = molar mass (g/mol)\n";
+  out_file << "  Tb         = normal boiling point (K)\n";
+  out_file << "  SG         = specific gravity (60F/60F)\n";
+  out_file << "  Tc         = critical temperature (K)\n";
+  out_file << "  Pc         = critical pressure (MPa)\n";
+  out_file << "  omega      = acentric factor (dimensionless)\n";
+  out_file << "  Pbub       = bubble point pressure (Pa)\n";
+  out_file << "  Pdew       = dew point pressure (Pa)\n";
+  out_file << "  beta       = vapor fraction (0 = all liquid, 1 = all vapor)\n";
+  out_file << "  rho_liq    = liquid phase molar density (mol/m3)\n";
+  out_file << "  rho_vap    = vapor phase molar density (mol/m3)\n";
+  out_file << "============================================================"
+               "===================\n";
+
+  // --- Results: Component tables ---
+  out_file << "\n\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Results\n";
+  out_file << "============================================================"
+               "===================\n";
+
+  printComponentTable(out_file, orig_mix, "Original Mixture (Reference)");
+  printComponentTable(out_file, lump_mix, "Lumped Mixture");
+
+  // ============================================================
+  // Step 5: Evaluate phase behavior at multiple temperatures
+  // ============================================================
+  auto nc_orig = static_cast<int>(orig_mix.comps.size());
+  auto nc_lump = static_cast<int>(lump_mix.comps.size());
+  Vec<double> z_orig(nc_orig), z_lump(nc_lump);
+  for (int i = 0; i < nc_orig; i++) z_orig[i] = orig_mix.comps[i].z;
+  for (int i = 0; i < nc_lump; i++) z_lump[i] = lump_mix.comps[i].z;
+  normalizeZ(z_orig);
+  normalizeZ(z_lump);
+
+  // Flash settings
+  auto flash_max_iter = 200;
+  auto flash_tol = 1e-8;
+
+  out_file << "\n\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Phase Behavior Evaluation — " << eosName(eos) << "\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << std::left << std::setw(10) << "T(K)"
+           << std::right << std::setw(16) << "Pbub_orig(Pa)"
+           << std::setw(16) << "Pbub_lump(Pa)"
+           << std::setw(14) << "err_Pbub(%)"
+           << std::setw(16) << "Pdew_orig(Pa)"
+           << std::setw(16) << "Pdew_lump(Pa)"
+           << std::setw(14) << "err_Pdew(%)"
+           << std::setw(14) << "err_beta"
+           << std::setw(14) << "err_rho_liq"
+           << std::setw(14) << "err_rho_vap" << "\n";
+  out_file << std::string(146, '-') << "\n";
+
+  // Summary accumulators
+  double max_err_Pbub = 0, max_err_Pdew = 0, max_err_beta = 0;
+  double max_err_rho_liq = 0, max_err_rho_vap = 0, max_err_x = 0;
+  int n_rho_vap_samples = 0;
+  int n_fail_Pbub = 0, n_fail_Pdew = 0, n_fail_flash = 0;
+  int n_Pbub_both_fail = 0, n_Pbub_orig_fail = 0, n_Pbub_lump_fail = 0;
+  int n_Pdew_both_fail = 0, n_Pdew_orig_fail = 0, n_Pdew_lump_fail = 0;
+  int n_flash_both_fail = 0, n_flash_orig_fail = 0, n_flash_lump_fail = 0;
+
+  for (auto T : eval_temps) {
+    // --- Original: bubble & dew ---
+    double Pbub_orig = 0, Pdew_orig = 0;
+    Vec<double> y_orig, x_orig;
+    bool ok_bub_orig = bubblePressure(eos, T, z_orig, orig_mix.comps,
+                                       orig_mix.kij, Pbub_orig, y_orig);
+    bool ok_dew_orig = dewPressure(eos, T, z_orig, orig_mix.comps,
+                                    orig_mix.kij, Pdew_orig, x_orig);
+
+    // --- Lumped: bubble & dew ---
+    double Pbub_lump = 0, Pdew_lump = 0;
+    Vec<double> y_lump, x_lump;
+    bool ok_bub_lump = bubblePressure(eos, T, z_lump, lump_mix.comps,
+                                       lump_mix.kij, Pbub_lump, y_lump);
+    bool ok_dew_lump = dewPressure(eos, T, z_lump, lump_mix.comps,
+                                    lump_mix.kij, Pdew_lump, x_lump);
+
+    // --- Flash at a pressure within the two-phase envelope ---
+    // Use the midpoint between Pbub and Pdew, but clamp to ≤ 30 MPa
+    // where Wilson K-values are still reliable. If the midpoint is
+    // too high, use a lower fraction of Pbub.
+    double P_mid;
+    if (Pbub_orig < Pdew_orig) {
+      // Valid envelope: use midpoint, capped at 30 MPa
+      P_mid = 0.5 * (Pbub_orig + Pdew_orig);
+      if (P_mid > 3e7) P_mid = 3e7;
+    } else {
+      // Pbub >= Pdew: solvers disagree, use a moderate pressure
+      P_mid = 1e7;
+    }
+    if (P_mid < 1e4) P_mid = 1e6;
+
+    FlashResult flash_orig, flash_lump;
+    robustFlashPT(eos, T, P_mid, z_orig, orig_mix.comps, orig_mix.kij,
+                  flash_max_iter, flash_tol, flash_orig);
+    robustFlashPT(eos, T, P_mid, z_lump, lump_mix.comps, lump_mix.kij,
+                  flash_max_iter, flash_tol, flash_lump);
+
+    // --- Errors — detailed status tracking ---
+    double err_Pbub, err_Pdew, err_beta, err_rho_liq, err_rho_vap;
+    String status_Pbub, status_Pdew, status_flash;
+
+    // Bubble point status
+    if (ok_bub_orig && ok_bub_lump) {
+      err_Pbub = relErr(Pbub_lump, Pbub_orig);
+      status_Pbub = "ok";
+    } else if (!ok_bub_orig && !ok_bub_lump) {
+      err_Pbub = -1.0;
+      status_Pbub = "both_failed";
+    } else if (!ok_bub_orig) {
+      err_Pbub = -2.0;
+      status_Pbub = "orig_failed";
+    } else {
+      err_Pbub = -3.0;
+      status_Pbub = "lump_failed";
+    }
+
+    // Dew point status
+    if (ok_dew_orig && ok_dew_lump) {
+      err_Pdew = relErr(Pdew_lump, Pdew_orig);
+      status_Pdew = "ok";
+    } else if (!ok_dew_orig && !ok_dew_lump) {
+      err_Pdew = -1.0;
+      status_Pdew = "both_failed";
+    } else if (!ok_dew_orig) {
+      err_Pdew = -2.0;
+      status_Pdew = "orig_failed";
+    } else {
+      err_Pdew = -3.0;
+      status_Pdew = "lump_failed";
+    }
+
+    // Precompute average MM and mass densities for vapor check
+    auto computeAvgMM = [&](const Vec<double> &comp, const Vec<Component> &comps) -> double {
+      double mm = 0.0;
+      for (size_t i = 0; i < comp.size(); i++) mm += comp[i] * comps[i].MM;
+      return mm;
+    };
+
+    auto mm_orig_liq = computeAvgMM(flash_orig.x, orig_mix.comps);
+    auto mm_orig_vap = computeAvgMM(flash_orig.y, orig_mix.comps);
+    auto mm_lump_liq = computeAvgMM(flash_lump.x, lump_mix.comps);
+    auto mm_lump_vap = computeAvgMM(flash_lump.y, lump_mix.comps);
+
+    auto rho_mass_orig_liq = flash_orig.rho_liq * mm_orig_liq;
+    auto rho_mass_orig_vap = flash_orig.rho_vap * mm_orig_vap;
+    auto rho_mass_lump_liq = flash_lump.rho_liq * mm_lump_liq;
+    auto rho_mass_lump_vap = flash_lump.rho_vap * mm_lump_vap;
+
+    // Flash status
+    if (flash_orig.converged && flash_lump.converged) {
+      err_beta = std::abs(flash_lump.beta - flash_orig.beta);
+
+      // Vapor density error is only meaningful when there is a real vapor phase.
+      // In single-phase liquid (beta ≈ 0), the "vapor" composition is hypothetical
+      // (y = K*x from Wilson), and its properties are numerical artifacts that
+      // depend sensitively on the component characterization. Comparing these
+      // between original and lumped mixtures is meaningless.
+      // We require at least one case to have a non-negligible vapor fraction
+      // AND the vapor root to be physically consistent (less dense by mass).
+      auto vapor_exists = (flash_orig.beta > 1e-4 || flash_lump.beta > 1e-4);
+      auto vapor_physically_ok =
+          std::isfinite(rho_mass_orig_vap) && std::isfinite(rho_mass_lump_vap)
+          && rho_mass_orig_vap > 0.0 && rho_mass_lump_vap > 0.0
+          && rho_mass_orig_vap < rho_mass_orig_liq
+          && rho_mass_lump_vap < rho_mass_lump_liq;
+
+      if (vapor_exists && vapor_physically_ok) {
+        err_rho_vap = relErr(flash_lump.rho_vap, flash_orig.rho_vap);
+      } else {
+        err_rho_vap = -4.0; // N/A
+      }
+
+      // Liquid density: always meaningful if finite and non-negligible.
+      if (std::isfinite(flash_orig.rho_liq) && std::isfinite(flash_lump.rho_liq)
+          && flash_orig.rho_liq > 1e-30 && flash_lump.rho_liq > 1e-30) {
+        err_rho_liq = relErr(flash_lump.rho_liq, flash_orig.rho_liq);
+      } else {
+        err_rho_liq = -4.0; // N/A
+      }
+
+      status_flash = "ok";
+    } else if (!flash_orig.converged && !flash_lump.converged) {
+      err_beta = -1.0;
+      err_rho_liq = -1.0;
+      err_rho_vap = -1.0;
+      status_flash = "both_failed";
+    } else if (!flash_orig.converged) {
+      err_beta = -2.0;
+      err_rho_liq = -2.0;
+      err_rho_vap = -2.0;
+      status_flash = "orig_failed";
+    } else {
+      err_beta = -3.0;
+      err_rho_liq = -3.0;
+      err_rho_vap = -3.0;
+      status_flash = "lump_failed";
+    }
+
+    // Track convergence failures with detailed categorization
+    if (status_Pbub == "both_failed") { n_fail_Pbub++; n_Pbub_both_fail++; }
+    else if (status_Pbub == "orig_failed") { n_fail_Pbub++; n_Pbub_orig_fail++; }
+    else if (status_Pbub == "lump_failed") { n_fail_Pbub++; n_Pbub_lump_fail++; }
+
+    if (status_Pdew == "both_failed") { n_fail_Pdew++; n_Pdew_both_fail++; }
+    else if (status_Pdew == "orig_failed") { n_fail_Pdew++; n_Pdew_orig_fail++; }
+    else if (status_Pdew == "lump_failed") { n_fail_Pdew++; n_Pdew_lump_fail++; }
+
+    if (status_flash == "both_failed") { n_fail_flash++; n_flash_both_fail++; }
+    else if (status_flash == "orig_failed") { n_fail_flash++; n_flash_orig_fail++; }
+    else if (status_flash == "lump_failed") { n_fail_flash++; n_flash_lump_fail++; }
+
+    // Track max — skip invalid entries
+    if (err_Pbub >= 0 && err_Pbub > max_err_Pbub) max_err_Pbub = err_Pbub;
+    if (err_Pdew >= 0 && err_Pdew > max_err_Pdew) max_err_Pdew = err_Pdew;
+    if (err_beta >= 0 && err_beta > max_err_beta) max_err_beta = err_beta;
+    if (err_rho_liq >= 0 && err_rho_liq > max_err_rho_liq) max_err_rho_liq = err_rho_liq;
+    if (err_rho_vap >= 0 && err_rho_vap > max_err_rho_vap) { max_err_rho_vap = err_rho_vap; n_rho_vap_samples++; }
+
+    // --- Composition error (liquid phase) ---
+    auto err_x = 0.0;
+    if (flash_orig.converged && flash_lump.converged) {
+      auto nx = std::min(flash_orig.x.size(), flash_lump.x.size());
+      auto ss = 0.0;
+      for (auto i = 0u; i < nx; i++) {
+        auto d = flash_lump.x[i] - flash_orig.x[i];
+        ss += d * d;
+      }
+      err_x = std::sqrt(ss / nx);
+      if (err_x > max_err_x) max_err_x = err_x;
+    }
+
+    // --- Log — detailed convergence info ---
+    log_file << "\nT = " << std::fixed << std::setprecision(1) << T << " K\n";
+    log_file << "  Pbub: orig=" << std::scientific << Pbub_orig << " Pa"
+             << ", lump=" << Pbub_lump << " Pa"
+             << " [" << status_Pbub << "]\n";
+    log_file << "  Pdew: orig=" << Pdew_orig << " Pa"
+             << ", lump=" << Pdew_lump << " Pa"
+             << " [" << status_Pdew << "]\n";
+    log_file << "  Flash at P=" << P_mid << " Pa:\n";
+    log_file << "    orig: beta=" << flash_orig.beta
+             << ", rho_liq=" << flash_orig.rho_liq
+             << ", rho_vap=" << flash_orig.rho_vap
+             << ", converged=" << (flash_orig.converged ? "yes" : "no")
+             << ", iter=" << flash_orig.n_iter << "\n";
+    log_file << "    lump: beta=" << flash_lump.beta
+             << ", rho_liq=" << flash_lump.rho_liq
+             << ", rho_vap=" << flash_lump.rho_vap
+             << ", converged=" << (flash_lump.converged ? "yes" : "no")
+             << ", iter=" << flash_lump.n_iter << "\n";
+    log_file << "    err_rho_liq=";
+    if (err_rho_liq >= 0) log_file << err_rho_liq << " %";
+    else log_file << "N/A";
+    log_file << ", err_rho_vap=";
+    if (err_rho_vap >= 0) log_file << err_rho_vap << " %";
+    else log_file << "N/A";
+    log_file << "\n";
+    log_file << "    status: " << status_flash << "\n";
+
+    // --- Print table row — detailed status markers ---
+    auto fmt_val = [](double err, const String &status) -> String {
+      if (err == -4.0) return "N/A";
+      if (status == "ok") {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%.4f", err);
+        return String(buf);
+      } else if (status == "both_failed") {
+        return "both_fail";
+      } else if (status == "orig_failed") {
+        return "orig_fail";
+      } else if (status == "lump_failed") {
+        return "lump_fail";
+      }
+      return "unknown";
+    };
+
+    out_file << std::left << std::setw(10) << std::fixed << std::setprecision(1) << T
+             << std::right << std::scientific << std::setprecision(4)
+             << std::setw(16) << Pbub_orig
+             << std::setw(16) << Pbub_lump
+             << std::setw(14) << fmt_val(err_Pbub, status_Pbub)
+             << std::scientific << std::setprecision(4)
+             << std::setw(16) << Pdew_orig
+             << std::setw(16) << Pdew_lump
+             << std::setw(14) << fmt_val(err_Pdew, status_Pdew)
+             << std::setw(14) << fmt_val(err_beta, status_flash)
+             << std::setw(14) << fmt_val(err_rho_liq, status_flash)
+             << std::setw(14) << fmt_val(err_rho_vap, status_flash) << "\n";
+  }
+
+  out_file << std::string(138, '-') << "\n";
+
+  // ============================================================
+  // Step 6: Detailed flash composition comparison at mid-T
+  // ============================================================
+  auto T_mid = eval_temps[eval_temps.size() / 2];
+  double P_ref = 1e7;  // 10 MPa as reference
+
+  FlashResult flash_orig_ref, flash_lump_ref;
+  robustFlashPT(eos, T_mid, P_ref, z_orig, orig_mix.comps, orig_mix.kij,
+                flash_max_iter, flash_tol, flash_orig_ref);
+  robustFlashPT(eos, T_mid, P_ref, z_lump, lump_mix.comps, lump_mix.kij,
+                flash_max_iter, flash_tol, flash_lump_ref);
+
+  out_file << "\n\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Detailed Flash Comparison — T=" << std::fixed
+           << std::setprecision(1) << T_mid << " K, P=" << std::scientific
+           << P_ref << " Pa\n";
+  out_file << "============================================================"
+               "===================\n";
+
+  out_file << "\n  Flash Results:\n";
+  out_file << "    " << std::left << std::setw(20) << "Property"
+           << std::right << std::setw(20) << "Original"
+           << std::setw(20) << "Lumped" << "\n";
+  out_file << "  " << std::string(62, '-') << "\n";
+
+  auto print_flash_row = [&](const String &label, double v_orig, double v_lump) {
+    out_file << "    " << std::left << std::setw(20) << label
+             << std::right << std::scientific << std::setprecision(6)
+             << std::setw(20) << v_orig
+             << std::setw(20) << v_lump << "\n";
+  };
+
+  print_flash_row("beta (vapor frac)", flash_orig_ref.beta, flash_lump_ref.beta);
+  print_flash_row("rho_liq (mol/m3)", flash_orig_ref.rho_liq, flash_lump_ref.rho_liq);
+  print_flash_row("rho_vap (mol/m3)", flash_orig_ref.rho_vap, flash_lump_ref.rho_vap);
+  print_flash_row("Z_liq",
+    flash_orig_ref.V_liq * P_ref / (R_cubic * T_mid),
+    flash_lump_ref.V_liq * P_ref / (R_cubic * T_mid));
+  print_flash_row("Z_vap",
+    flash_orig_ref.V_vap * P_ref / (R_cubic * T_mid),
+    flash_lump_ref.V_vap * P_ref / (R_cubic * T_mid));
+
+  // Liquid composition comparison — match lights by name, aggregate heavy members
+  out_file << "\n  Liquid Composition:\n";
+  out_file << "    " << std::left << std::setw(16) << "Component"
+           << std::right << std::setw(16) << "x_orig"
+           << std::setw(16) << "x_lump"
+           << std::setw(16) << "abs_err" << "\n";
+
+  // Light components: compare by name (assume same order in both mixtures)
+  auto n_light_common = std::min(lump_mix.n_light, orig_mix.n_light);
+  for (auto i = 0; i < n_light_common; i++) {
+    auto err = std::abs(flash_lump_ref.x[i] - flash_orig_ref.x[i]);
+    out_file << "    " << std::left << std::setw(16) << orig_mix.comps[i].name
+             << std::right << std::scientific << std::setprecision(6)
+             << std::setw(16) << flash_orig_ref.x[i]
+             << std::setw(16) << flash_lump_ref.x[i]
+             << std::setw(16) << err << "\n";
+  }
+
+  // Heavy fractions: aggregate original compositions per pseudo
+  for (int p = 0; p < lump_mix.n_pseudo; p++) {
+    // Find the pseudo's members in the original heavy fraction
+    auto orig_heavy_start = orig_mix.n_light;
+    auto lump_heavy_start = lump_mix.n_light;
+
+    // The pseudo members are indexed into heavies[], not all_comps
+    // In buildLumpedMixture, pseudos are appended after lights.
+    // The pseudo p corresponds to heavies indices stored in pseudos[p].member_indices
+    double x_orig_agg = 0.0;
+    if (p < static_cast<int>(pseudos.size())) {
+      for (int mi : pseudos[p].member_indices) {
+        auto orig_idx = orig_heavy_start + mi;
+        if (orig_idx < static_cast<int>(flash_orig_ref.x.size())) {
+          x_orig_agg += flash_orig_ref.x[orig_idx];
+        }
+      }
+    }
+
+    auto lump_idx = lump_heavy_start + p;
+    auto x_lump_val = (lump_idx < static_cast<int>(flash_lump_ref.x.size()))
+                       ? flash_lump_ref.x[lump_idx] : 0.0;
+
+    auto pseudo_name = "Pseudo" + std::to_string(p + 1);
+    out_file << "    " << std::left << std::setw(16) << pseudo_name
+             << std::right << std::scientific << std::setprecision(6)
+             << std::setw(16) << x_orig_agg
+             << std::setw(16) << x_lump_val
+             << std::setw(16) << std::abs(x_lump_val - x_orig_agg) << "\n";
+  }
+
+  // Vapor composition comparison — same logic
+  out_file << "\n  Vapor Composition:\n";
+  out_file << "    " << std::left << std::setw(16) << "Component"
+           << std::right << std::setw(16) << "y_orig"
+           << std::setw(16) << "y_lump"
+           << std::setw(16) << "abs_err" << "\n";
+
+  for (auto i = 0; i < n_light_common; i++) {
+    auto err = std::abs(flash_lump_ref.y[i] - flash_orig_ref.y[i]);
+    out_file << "    " << std::left << std::setw(16) << orig_mix.comps[i].name
+             << std::right << std::scientific << std::setprecision(6)
+             << std::setw(16) << flash_orig_ref.y[i]
+             << std::setw(16) << flash_lump_ref.y[i]
+             << std::setw(16) << err << "\n";
+  }
+
+  for (int p = 0; p < lump_mix.n_pseudo; p++) {
+    auto orig_heavy_start = orig_mix.n_light;
+    auto lump_heavy_start = lump_mix.n_light;
+
+    double y_orig_agg = 0.0;
+    if (p < static_cast<int>(pseudos.size())) {
+      for (int mi : pseudos[p].member_indices) {
+        auto orig_idx = orig_heavy_start + mi;
+        if (orig_idx < static_cast<int>(flash_orig_ref.y.size())) {
+          y_orig_agg += flash_orig_ref.y[orig_idx];
+        }
+      }
+    }
+
+    auto lump_idx = lump_heavy_start + p;
+    auto y_lump_val = (lump_idx < static_cast<int>(flash_lump_ref.y.size()))
+                       ? flash_lump_ref.y[lump_idx] : 0.0;
+
+    auto pseudo_name = "Pseudo" + std::to_string(p + 1);
+    out_file << "    " << std::left << std::setw(16) << pseudo_name
+             << std::right << std::scientific << std::setprecision(6)
+             << std::setw(16) << y_orig_agg
+             << std::setw(16) << y_lump_val
+             << std::setw(16) << std::abs(y_lump_val - y_orig_agg) << "\n";
+  }
+
+  // ============================================================
+  // Step 7: Summary
+  // ============================================================
+  auto t_end = std::chrono::high_resolution_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     t_end - t_start).count();
+
+  out_file << "\n\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Summary\n";
+  out_file << "============================================================"
+               "===================\n";
+  out_file << "  Input file:             " << inputFileName << "\n";
+  out_file << "  Original components:    " << orig_mix.comps.size() << "\n";
+  out_file << "  Lumped components:      " << lump_mix.comps.size()
+           << " (" << lump_mix.n_light << " lights + "
+           << lump_mix.n_pseudo << " pseudos)\n";
+  out_file << "  Lumping method:         " << lumpName(lumpMethod) << "\n";
+  out_file << "  Correlation:            " << corrName(corrMethod) << "\n";
+  out_file << "  Cubic EOS:              " << eosName(eos) << "\n";
+  out_file << "  Evaluation temperatures: ";
+  for (size_t i = 0; i < eval_temps.size(); i++) {
+    out_file << std::fixed << std::setprecision(0) << eval_temps[i] << " K";
+    if (i + 1 < eval_temps.size()) out_file << ", ";
+  }
+  out_file << "\n\n";
+
+  out_file << "  Maximum Relative Errors:\n";
+  out_file << "    Pbub:     " << std::fixed << std::setprecision(4)
+           << max_err_Pbub << " %\n";
+  out_file << "    Pdew:     " << max_err_Pdew << " %\n";
+  out_file << "    beta:     " << max_err_beta << " (absolute)\n";
+  out_file << "    rho_liq:  " << max_err_rho_liq << " %\n";
+  out_file << "    rho_vap:  ";
+  if (n_rho_vap_samples > 0) out_file << max_err_rho_vap << " %";
+  else out_file << "N/A (no two-phase flash)";
+  out_file << "\n";
+  out_file << "    x (RMS):  " << std::scientific << std::setprecision(6) << max_err_x << "\n";
+
+  out_file << "\n  Convergence Failures:\n";
+  out_file << "    Pbub:     " << n_fail_Pbub << " / " << eval_temps.size() << " temperatures";
+  if (n_fail_Pbub > 0) {
+    out_file << " (both: " << n_Pbub_both_fail
+             << ", orig_only: " << n_Pbub_orig_fail
+             << ", lump_only: " << n_Pbub_lump_fail << ")";
+  }
+  out_file << "\n";
+
+  out_file << "    Pdew:     " << n_fail_Pdew << " / " << eval_temps.size() << " temperatures";
+  if (n_fail_Pdew > 0) {
+    out_file << " (both: " << n_Pdew_both_fail
+             << ", orig_only: " << n_Pdew_orig_fail
+             << ", lump_only: " << n_Pdew_lump_fail << ")";
+  }
+  out_file << "\n";
+
+  out_file << "    Flash:    " << n_fail_flash << " / " << eval_temps.size() << " temperatures";
+  if (n_fail_flash > 0) {
+    out_file << " (both: " << n_flash_both_fail
+             << ", orig_only: " << n_flash_orig_fail
+             << ", lump_only: " << n_flash_lump_fail << ")";
+  }
+  out_file << "\n";
+
+  out_file << "\n  Total execution time: " << elapsed << " ms\n";
+  out_file << "============================================================"
+               "===================\n";
+
+  // ============================================================
+  // Terminal output — minimal
+  // ============================================================
+  std::cout << "\nRecharacterization Evaluation — " << eosName(eos) << "\n";
+  std::cout << "  Lumping: " << lumpName(lumpMethod) << " (" << np_actual
+            << " pseudos)\n";
+  std::cout << "  Correlation: " << corrName(corrMethod) << "\n";
+  std::cout << "  Original: " << orig_mix.comps.size()
+            << " comps → Lumped: " << lump_mix.comps.size() << " comps\n";
+  // Warning for known problematic combinations
+  if (corrMethod == CorrMethod::InternalAlkaneMM) {
+    if (eos == CubicEOS::SRK) {
+      std::cout << "  ** WARNING: InternalAlkaneMM + SRK may produce large errors **\n";
+    }
+    if (lumpMethod == LumpMethod::Whitson) {
+      std::cout << "  ** WARNING: InternalAlkaneMM + Whitson may produce large dew point errors **\n";
+    }
+  }
+  std::cout << "  Max errors: Pbub=" << std::fixed << std::setprecision(3)
+            << max_err_Pbub << "%, Pdew=" << max_err_Pdew
+            << "%, beta=" << max_err_beta << "\n";
+  std::cout << "  Output: " << outFileName << "\n";
+  std::cout << "  Log:    " << logFileName << "\n";
+  std::cout << "  Time:   " << elapsed << " ms\n";
+
+  log_file << "\nTotal execution time: " << elapsed << " ms\n";
+
+  out_file.close();
+  log_file.close();
+
+  return 0;
+}
+
+
+imagine que eu to pegando esse código e colocando em outro, onde eu ja tenho o equilibrio de fases mas falta pegar e implementar o lumping, eu copiei os arquivos .cpp e .hpp de metodos de lumping correlacio e tambem eos types, mas meus dados originais nao tem uma flag como a utizada na versão em anexo, oque eu preciso fazer para concluir essa demanda
+
+O principal ponto é que o seu código original provavelmente já possui:
+
+leitura da composição global z
+
+propriedades termodinâmicas (Tc, Pc, omega, MM)
+
+flash PT
+
+cálculo EOS
+
+Mas ele não possui a separação entre componentes leves e pesados, que no código anexado é feita com:
+
+flag = 0  // componente conhecido/light
+flag = 1  // fração pesada/SCN
+Então, para implementar o lumping no outro projeto, você precisa criar uma forma alternativa de identificar:
+
+quais componentes permanecem individuais
+
+quais componentes serão agrupados em pseudocomponentes
+
+O que o lumping realmente precisa
+Os métodos:
+
+lumpPedersen
+
+lumpDanesh
+
+lumpWhitson
+
+não precisam necessariamente da flag.
+
+Eles precisam apenas de:
+
+Vec<Component> heavies;
+ou seja:
+
+lista das frações pesadas
+
+com:
+
+z
+
+MM
+
+Tb
+
+SG
+
+eventualmente Tc Pc omega
+
+O que você precisa adaptar
+Você basicamente precisa implementar 5 etapas.
+
+ETAPA 1 — Identificar os componentes pesados
+No código novo você provavelmente já tem algo assim:
+
+components = {N2, CO2, C1, C2, C3, ..., C20+}
+Você precisa decidir:
+
+quais componentes são "light"
+e
+
+quais entram no lumping
+Normalmente:
+
+componente	tratamento
+N2 até C6	mantém individual
+C7+	entra no lumping
+Exemplo
+Você pode fazer:
+
+Vec<Component> lights;
+Vec<Component> heavies;
+
+for (const auto &c : all_comps) {
+
+    if (c.MM < 90.0) {
+        lights.push_back(c);
+    }
+    else {
+        heavies.push_back(c);
+    }
+}
+ou:
+
+if (carbon_number <= 6)
+ou:
+
+if (name == "C7+" ...)
+depende de como seu código organiza os componentes.
+
+ETAPA 2 — Garantir propriedades das frações pesadas
+O lumping precisa de:
+
+z
+
+MM
+
+Tb
+
+SG
+
+Então você precisa garantir que os pesados tenham isso preenchido.
+
+Se você já possui Tc Pc omega
+Ótimo.
+
+Mas Pedersen e Whitson fazem médias usando:
+
+boiling point
+
+specific gravity
+
+Então você precisa obter:
+
+Tb
+SG
+para cada SCN pesada.
+
+ETAPA 3 — Caracterizar os pesados antes do lumping
+Essa foi exatamente a parte adicionada no código anexado:
+
+for (auto &h : heavies) {
+
+    characterizeComponent(h, opts);
+
+}
+Isso é ESSENCIAL.
+
+Porque o lumping usa propriedades médias.
+
+Sem isso o lumping quebra
+Por exemplo:
+
+pseudo.Tb = Σ zi*Tb_i
+pseudo.SG = Σ zi*SG_i
+Então:
+
+se Tb_i = 0
+
+ou SG_i = 0
+
+o pseudocomponente fica inválido.
+
+ETAPA 4 — Chamar o método de lumping
+Depois de montar:
+
+Vec<Component> heavies;
+você chama:
+
+Vec<LumpedPseudo> pseudos;
+
+lumpPedersen(heavies, npseudos, pseudos);
+ou:
+
+lumpDanesh(...)
+ou:
+
+lumpWhitson(...)
+ETAPA 5 — Reconstruir a mistura final
+Depois do lumping você precisa criar:
+
+Mixture final_mix;
+contendo:
+
+componentes leves
+pseudocomponentes
+Estrutura típica
+for (auto &c : lights)
+    final_mix.comps.push_back(c);
+
+for (auto &p : pseudos) {
+
+    Component pc;
+
+    pc.z  = p.z;
+    pc.MM = p.MM;
+    pc.Tb = p.Tb;
+    pc.SG = p.SG;
+
+    characterizeComponent(pc, opts);
+
+    final_mix.comps.push_back(pc);
+}
+O mais importante: o que NÃO precisa copiar
+Você NÃO precisa copiar:
+
+bubble pressure
+
+dew pressure
+
+flash
+
+relatório
+
+logs
+
+summaries
+
+Nada disso.
+
+Para implementar lumping no outro código você precisa apenas:
+
+MÍNIMO necessário
+1. Estrutura Component
+com:
+
+name
+z
+MM
+Tb
+SG
+Tc
+Pc
+omega
+2. Separação:
+lights
+heavies
+3. Characterization
+characterizeComponent()
+4. Método de lumping
+lumpPedersen()
+5. Recriar mistura reduzida
+Fluxo simplificado
+O fluxo real fica:
+
+Leitura da mistura original
+        ↓
+Separar leves e pesados
+        ↓
+Caracterizar pesados
+        ↓
+Aplicar lumping
+        ↓
+Criar pseudocomponentes
+        ↓
+Caracterizar pseudocomponentes
+        ↓
+Montar mistura reduzida
+        ↓
+Enviar para flash PT
+O maior problema que normalmente aparece
+No seu caso provavelmente será:
+
+seu código original não possui:
+Tb
+SG
+nas frações pesadas.
+
+Sem isso:
+
+Pedersen
+
+Whitson
+
+Danesh
+
+não funcionam corretamente.
+
+Então provavelmente você vai precisar:
+OU:
+carregar Tb e SG do banco
+
+OU:
+usar as correlações:
+
+characterizeComponent()
+para gerar isso automaticamente.
+
+Minha recomendação prática
+A forma mais limpa é:
+
+Antes do flash:
+1. Ler mistura
+2. Identificar C7+
+3. Characterize C7+
+4. Lumping
+5. Criar nova mistura
+6. Rodar flash normal
+Ou seja:
+
+o lumping deve acontecer ANTES de qualquer cálculo EOS.
+
+Estrutura mínima que você deve implementar
+Algo assim:
+
+Vec<Component> lights;
+Vec<Component> heavies;
+Vec<LumpedPseudo> pseudos;
+Mixture reduced_mix;
+e então:
+
+separateComponents(all_comps, lights, heavies);
+
+characterizeHeavies(heavies);
+
+lumpPedersen(heavies, npseudo, pseudos);
+
+buildReducedMixture(lights, pseudos, reduced_mix);
+A flag no fundo era só isso
+A flag não é especial.
+
+Ela só servia para dizer:
+
+0 → mantém individual
+1 → entra no lumping
+Você pode substituir isso por:
+
+número de carbono
+
+MM
+
+nome
+
+índice
+
+qualquer critério equivalente.
+
+
+qual função a aplica o metodo?
+
+Considerando o critério mais comum para lumping em petróleo:
+
+flag = 0 → componentes leves (mantidos individuais)
+
+flag = 1 → componentes pesados (entram no lumping)
+
+e assumindo:
+
+Leves  = até C6
+Pesados = C7+
+ficaria assim:
+
+// flag = 0 → light
+// flag = 1 → heavy (candidate for lumping)
+
+C1           -> flag = 0
+C2           -> flag = 0
+H2O          -> flag = 0
+C3           -> flag = 0
+CO2          -> flag = 0
+NC6          -> flag = 0
+NC10         -> flag = 1
+N2           -> flag = 0
+IC4          -> flag = 0
+NC4          -> flag = 0
+IC5          -> flag = 0
+NC5          -> flag = 0
+C6           -> flag = 0
+
+C7           -> flag = 1
+C8           -> flag = 1
+C9           -> flag = 1
+C10          -> flag = 1
+C11          -> flag = 1
+C12          -> flag = 1
+C13          -> flag = 1
+C14          -> flag = 1
+C15          -> flag = 1
+C16          -> flag = 1
+C17          -> flag = 1
+C18          -> flag = 1
+C19          -> flag = 1
+C20          -> flag = 1
+
+O2           -> flag = 0
+
+McycloC5     -> flag = 0
+Benzene      -> flag = 0
+CycloC6      -> flag = 0
+McycloC6     -> flag = 0
+Toluene      -> flag = 1
+C2Benzene    -> flag = 1
+mpXylene     -> flag = 1
+oXylene      -> flag = 1
+
+C21          -> flag = 1
+C22          -> flag = 1
+C23          -> flag = 1
+C24          -> flag = 1
+C25          -> flag = 1
+C26          -> flag = 1
+C27          -> flag = 1
+C28          -> flag = 1
+C29          -> flag = 1
+C30plus      -> flag = 1
+C31          -> flag = 1
+C32          -> flag = 1
+C33          -> flag = 1
+C34          -> flag = 1
+C35          -> flag = 1
+C36plus      -> flag = 1
+
+SumC7plus    -> flag = 1
+Observação importante
+Os aromáticos:
+
+Toluene
+
+Xylenes
+
+Ethylbenzene (C2Benzene)
+
+ficam meio “na fronteira”.
+
+Você pode tratar de duas formas:
+
+abordagem	aromáticos
+abordagem simples	lump junto com C7+
+abordagem mais rigorosa	manter individuais
+Para o seu caso
+Como você quer implementar lumping de forma genérica e compatível com o código anexado:
+
+a recomendação mais simples e robusta é:
+
+Tudo acima de C6 → flag = 1
+incluindo aromáticos pesados.
+
+Na prática no código
+Você pode automatizar isso:
+
+if (component.MM <= 86.0)
+    flag = 0;
+else
+    flag = 1;
+ou:
+
+if (carbon_number <= 6)
+Critério típico usado em simuladores
+componente	tratamento
+gases permanentes	light
+C1–C6	light
+água	light
+aromáticos leves	light
+C7+	heavy/lumped
+Sugestão melhor para o seu projeto
+Em vez de salvar a flag manualmente, crie uma função:
+
+int componentFlag(const String& name)
+Exemplo:
+
+int componentFlag(const String& name)
+{
+    static const std::set<String> lights = {
+        "N2","CO2","H2O","O2",
+        "C1","C2","C3",
+        "IC4","NC4",
+        "IC5","NC5",
+        "C6","NC6",
+        "McycloC5",
+        "CycloC6",
+        "McycloC6",
+        "Benzene"
+    };
+
+    return lights.count(name) ? 0 : 1;
+}
+Assim você não precisa alterar seus arquivos de entrada.
+
+
+Components  %[mol]  MM(g/mol)  flag
+N2          0.005   28.01      0
+CO2         0.010   44.01      0
+C1          0.650   16.043     0
+C2          0.070   30.07      0
+C3          0.045   44.096     0
+iC4         0.010   58.123     0
+nC4         0.015   58.123     0
+iC5         0.005   72.15      0
+nC5         0.005   72.15      0
+C6          0.010   86.177     0
+C7          0.015   96.0       1
+C8          0.012   107.0      1
+C9          0.010   121.0      1
+C10         0.009   134.0      1
+C11         0.008   147.0      1
+C12         0.007   161.0      1
+C13         0.006   175.0      1
+C14         0.005   190.0      1
+C15         0.004   206.0      1
+C16         0.004   222.0      1
+C20+        0.075   350.0      1
+
+
+esse %[mol é fração molar?
+
+Sim.
+
+Nesse arquivo:
+
+Components  %[mol]  MM(g/mol)  flag
+a coluna:
+
+%[mol]
+representa a:
+
+fração molar global da mistura
+normalmente chamada no código de:
+
+z
+Exemplo
+C1   0.650
+significa:
+
+65,0% molar de metano
+ou:
+
+z
+C
+1
+=
+0.650
+z 
+C1
+​
+ =0.650
+Então:
+coluna	significado
+Components	nome do componente
+%[mol]	fração molar global (z)
+MM(g/mol)	massa molar
+flag	leve/pesado
+Importante
+Apesar do nome:
+
+%[mol]
+os valores estão em:
+
+fração molar decimal
+e NÃO em porcentagem real.
+
+Porque:
+
+0.650 = 65%
+e não:
+
+0.650%
+Inclusive o somatório confirma isso
+Somando tudo:
+
+∑
+z
+i
+≈
+1
+∑z 
+i
+​
+ ≈1
+que é exatamente o esperado para frações molares.
+
+No código isso vira
+c.z = z_val;
+e depois:
+
+normalizeZ(z);
+Terminologia correta para documentação/artigo
+Você pode descrever como:
+
+Global molar composition (zi)
+ou:
+
+Feed molar fraction
+ou:
+
+Overall molar fraction
+Observação importante para seu lumping
+O método de lumping usa exatamente essa coluna:
+
+z
+i
+z 
+i
+​
+ 
+para calcular propriedades médias dos pseudocomponentes:
+
+M
+ˉ
+=
+∑
+z
+i
+M
+i
+∑
+z
+i
+M
+ˉ
+ = 
+∑z 
+i
+​
+ 
+∑z 
+i
+​
+ M 
+i
+​
+ 
+​
+ 
+T
+ˉ
+b
+=
+∑
+z
+i
+T
+b
+,
+i
+∑
+z
+i
+T
+ˉ
+  
+b
+​
+ = 
+∑z 
+i
+​
+ 
+∑z 
+i
+​
+ T 
+b,i
+​
+ 
+​
+ 
+etc.
+
+
+pegue MM(g/mol) dos seguintes compostos e organize na estrutura:
+
+- Name: C1 
+Tc(K): 190.555 
+Pc(Pa): 4598837.0 
+omega: 0.01131
+MM:
+flag:
+
+- Name: C1
+    Tc(K): 190.555
+    Pc(Pa): 4598837.0
+    omega: 0.01131
+    MM(g/mol): 16.043
+    flag: 0
+
+- Name: C2
+    Tc(K): 305.30
+    Pc(Pa): 4872000.0
+    omega: 0.1
+    MM(g/mol): 30.07
+    flag: 0
+
+- Name: H2O
+    Tc(K): 647.2
+    Pc(Pa): 22648300.
+    omega: 0.344
+    MM(g/mol): 18.015
+    flag: 0
+
+- Name: C3
+    Tc(K): 190.
+    Pc(Pa): 3100000.
+    omega: 0.1
+    MM(g/mol): 44.096
+    flag: 0
+
+- Name: CO2
+    Tc(K): 304.18
+    Pc(Pa): 7376500.0
+    omega: 0.225
+    MM(g/mol): 44.01
+    flag: 0
+
+- Name: NC6
+    Tc(K): 507.4
+    Pc(Pa): 2968800.0
+    omega: 0.296
+    MM(g/mol): 86.177
+    flag: 0
+
+- Name: NC10
+    Tc(K): 617.60
+    Pc(Pa): 2107600.0
+    omega: 0.49
+    MM(g/mol): 142.286
+    flag: 1
+
+- Name: N2
+    Tc(K): 126.20
+    Pc(Pa): 3400000.0
+    omega: 0.0380
+    MM(g/mol): 28.01
+    flag: 0
+
+- Name: IC4
+    Tc(K): 408.10
+    Pc(Pa): 3648000.0
+    omega: 0.1810
+    MM(g/mol): 58.123
+    flag: 0
+
+- Name: NC4
+    Tc(K): 425.10
+    Pc(Pa): 3796000.0
+    omega: 0.2000
+    MM(g/mol): 58.123
+    flag: 0
+
+- Name: IC5
+    Tc(K): 460.00
+    Pc(Pa): 3700000.0
+    omega: 0.1950
+    MM(g/mol): 72.15
+    flag: 0
+
+- Name: NC5
+    Tc(K): 469.70
+    Pc(Pa): 3370000.0
+    omega: 0.2520
+    MM(g/mol): 72.15
+    flag: 0
+
+- Name: C6
+    Tc(K): 507.60
+    Pc(Pa): 3025000.0
+    omega: 0.3010
+    MM(g/mol): 86.177
+    flag: 0
+
+- Name: C7
+    Tc(K): 540.20
+    Pc(Pa): 2740000.0
+    omega: 0.3500
+    MM(g/mol): 100.204
+    flag: 1
+
+- Name: C8
+    Tc(K): 568.70
+    Pc(Pa): 2490000.0
+    omega: 0.4000
+    MM(g/mol): 114.231
+    flag: 1
+
+- Name: C9
+    Tc(K): 594.60
+    Pc(Pa): 2290000.0
+    omega: 0.4440
+    MM(g/mol): 128.258
+    flag: 1
+
+- Name: C10
+    Tc(K): 617.70
+    Pc(Pa): 2110000.0
+    omega: 0.4920
+    MM(g/mol): 142.286
+    flag: 1
+
+- Name: C11
+    Tc(K): 633.00
+    Pc(Pa): 2000000.0
+    omega: 0.5200
+    MM(g/mol): 156.313
+    flag: 1
+
+- Name: C12
+    Tc(K): 658.20
+    Pc(Pa): 1810000.0
+    omega: 0.5742
+    MM(g/mol): 170.34
+    flag: 1
+
+- Name: C13
+    Tc(K): 671.00
+    Pc(Pa): 1800000.0
+    omega: 0.5900
+    MM(g/mol): 184.367
+    flag: 1
+
+- Name: C14
+    Tc(K): 687.00
+    Pc(Pa): 1700000.0
+    omega: 0.6050
+    MM(g/mol): 198.394
+    flag: 1
+
+- Name: C15
+    Tc(K): 698.00
+    Pc(Pa): 1650000.0
+    omega: 0.6200
+    MM(g/mol): 212.421
+    flag: 1
+
+- Name: C16
+    Tc(K): 710.00
+    Pc(Pa): 1600000.0
+    omega: 0.6350
+    MM(g/mol): 226.448
+    flag: 1
+
+- Name: C17
+    Tc(K): 720.00
+    Pc(Pa): 1550000.0
+    omega: 0.6400
+    MM(g/mol): 240.475
+    flag: 1
+
+- Name: C18
+    Tc(K): 730.00
+    Pc(Pa): 1500000.
+    omega: 0.6450
+    MM(g/mol): 254.502
+    flag: 1
+
+- Name: C19
+    Tc(K): 740.
+    Pc(Pa): 1450000.
+    omega: 0.6500
+    MM(g/mol): 268.529
+    flag: 1
+
+- Name: C20
+    Tc(K): 750.
+    Pc(Pa): 1400000.
+    omega: 0.655
+    MM(g/mol): 282.556
+    flag: 1
